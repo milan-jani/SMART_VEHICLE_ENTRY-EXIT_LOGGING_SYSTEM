@@ -30,6 +30,8 @@ hybrid-logging/
 │   ├── start.sh                   # Start backend (Linux/Mac)
 │   ├── run_device.bat             # Run device (Windows)
 │   └── run_device.sh              # Run device (Linux/Mac)
+├── run_all.bat / .sh              # 🚀 One-click start (both services)
+├── dev_mode.bat / .sh             # 🔧 Development mode (backend only)
 ├── data/
 │   ├── visitors.csv               # Vehicle logs
 │   └── photos/                    # Captured images
@@ -57,6 +59,57 @@ hybrid-logging/
 - **Modular Design**: Separation of concerns (API, Device, Web)
 
 ## 🚀 Quick Start
+
+### Option 1: One-Click Start (Recommended) ⚡
+
+Start both backend and device workflow with a single command:
+
+**Windows:**
+```powershell
+.\run_all.bat
+```
+
+**Linux/Mac:**
+```bash
+./run_all.sh
+```
+
+This will:
+- ✅ Check and install dependencies
+- ✅ Start the backend server
+- ✅ Start the device workflow
+- ✅ Open the dashboard in your browser
+- ✅ Everything ready to use!
+
+### Option 2: Development Mode (For Dashboard/Code Changes) 🔧
+
+**Perfect for making changes to dashboard, UI, or API!**
+
+**Windows:**
+```powershell
+.\dev_mode.bat
+```
+
+**Linux/Mac:**
+```bash
+./dev_mode.sh
+```
+
+This mode:
+- ✅ Starts **only the backend** (no camera needed)
+- ✅ **Auto-reload** on file changes
+- ✅ Works with existing data in `data/visitors.csv`
+- ✅ Just **refresh browser** to see changes instantly!
+- ✅ Perfect for UI/dashboard development
+
+**How to use:**
+1. Run `dev_mode.bat` (Windows) or `./dev_mode.sh` (Linux/Mac)
+2. Dashboard opens automatically at http://localhost:8000/api/dashboard
+3. Make changes to HTML, CSS, JavaScript, or Python code
+4. Save your file - server auto-reloads!
+5. Just refresh your browser to see the changes
+
+### Option 3: Manual Start (Advanced)
 
 ### 1. Install Dependencies
 
@@ -241,7 +294,7 @@ This project is for educational and commercial use.
 
 ## 👤 Author
 
-Created with ❤️ for efficient vehicle logging and visitor management.
+Milan Jani
 
 ---
 
