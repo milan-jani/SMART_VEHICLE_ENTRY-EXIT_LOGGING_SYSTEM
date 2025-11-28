@@ -1,0 +1,15 @@
+Vehicle_No,Visitor_Name,Phone,Purpose,In_Time,Out_Time,Image_Path
+GJ05AB1234,,,,2025-09-11 19:00:00,,images/sample.jpg
+TEST1234,Milan,77777777,admision,2025-09-11 17:48:52,2025-09-11 17:52:16,images/test.jpg
+TEST1234,Milan,77777777,admision,2025-09-11 17:52:27,2025-09-11 17:52:57,images/test.jpg
+TEST1234,Milan Jani,77777777,admision,2025-09-11 18:10:30,2025-09-11 18:15:35,images/test.jpg
+TEST1234,,,,2025-09-11 18:27:03,2025-09-11 18:41:17,images/test.jpg
+TEST1234,Milan Jani,77777777,admision,2025-09-11 18:41:20,2025-09-11 18:42:29,images/test.jpg
+MH20EE7602,Milan Jani,7485975257,visti,2025-09-12 22:41:17,2025-09-12 22:42:35,images/capture_1757697074.jpg
+TY12MH5766,Yedunandan,123465789,xxxxxxxxx,2025-09-12 22:42:57,2025-09-12 22:45:21,images/capture_1757697173.jpg
+J389NLT,mj,77777777,admisionnnnnnn,2025-09-12 22:44:23,2025-09-12 22:45:44,images/capture_1757697261.jpg
+vDL7CQ1939,PANDA,123456498,TIMEPASS,2025-09-13 15:39:42,2025-09-13 15:40:52,images/capture_1757758176.jpg
+MH20EE7602,Darshan Jani,9724916797,ewnqi,2025-10-23 19:28:25,2025-10-23 19:30:00,images/capture_1761227902.jpg
+KA64N0099,Milan Jani,7485975257,Maja,2025-11-20 17:55:41,2025-11-20 18:25:04,C:\Users\DJ\Documents\PROJECTS\Hybrid Logging System\upgradation\app\device\..\..\data\photos\capture_1763641539.jpg
+KA05CD5678,Test Driver,1234567890,Meeting,2025-11-20 14:30:00,2025-11-20 16:30:00,data/photos/test.jpg
+KA64N0099,Milan Jani,7485975257,enquiry,2025-11-20 18:31:52,2025-11-20 18:32:43,C:\Users\DJ\Documents\PROJECTS\Hybrid Logging System\upgradation\app\device\..\..\data\photos\capture_1763643710.jpg

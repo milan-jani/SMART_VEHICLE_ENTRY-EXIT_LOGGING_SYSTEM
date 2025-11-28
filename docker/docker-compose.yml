@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: hybrid-logging-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../data:/app/data
+      - ../app:/app/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - logging-network
+
+networks:
+  logging-network:
+    driver: bridge

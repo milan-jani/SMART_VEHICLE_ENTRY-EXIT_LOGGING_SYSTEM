@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Entry</title>
+    <!-- Link to CSS in static folder -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <div class="form-container">
+        <h2>Visitor Entry Form</h2>
+
+        <!-- Success message -->
+        {% if success_message %}
+            <div class="success-message">{{ success_message }}</div>
+        {% endif %}
+
+        <form method="POST" action="/api/form">
+            <label for="vehicle">Vehicle Number:</label>
+            <input type="text" id="vehicle" name="vehicle" value="{{ plate }}" readonly>
+
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" placeholder="Enter full name" required autofocus>
+
+            <label for="phone">Phone:</label>
+            <input type="text" id="phone" name="phone" placeholder="Enter phone number" required>
+
+            <label for="purpose">Purpose:</label>
+            <input type="text" id="purpose" name="purpose" placeholder="Enter purpose of visit" required>
+
+            <button type="submit" class="submit-btn">Submit</button>
+        </form>
+        
+        <div style="margin-top: 20px; text-align: center;">
+            <a href="/api/dashboard" style="color: #3498db; text-decoration: none;">
+                📊 View Dashboard
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>
