@@ -19,10 +19,10 @@ def capture_with_preview(camera_index: int = 0) -> Tuple[Optional[str], Optional
     """
     cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
-        raise Exception("❌ Camera not found.")
+        raise Exception("[ERROR] Camera not found.")
 
-    print("📸 Press 'c' to capture photo")
-    print("❌ Press 'q' to quit")
+    print("[INFO] Press 'c' to capture photo")
+    print("Press 'q' to quit")
 
     filename = None
 
@@ -47,7 +47,7 @@ def capture_with_preview(camera_index: int = 0) -> Tuple[Optional[str], Optional
             
             filename = os.path.join(photo_dir, f"capture_{int(time.time())}.jpg")
             cv2.imwrite(filename, frame)
-            print(f"🖼️ Saved {filename}")
+            print(f"[SAVED] {filename}")
             break
 
         elif key == ord('q'):
@@ -73,7 +73,7 @@ def capture_single_frame(camera_index: int = 0, save_path: str = None) -> Option
     """
     cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
-        raise Exception("❌ Camera not found.")
+        raise Exception("[ERROR] Camera not found.")
     
     ret, frame = cap.read()
     cap.release()

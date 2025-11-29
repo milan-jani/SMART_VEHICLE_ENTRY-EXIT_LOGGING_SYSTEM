@@ -281,7 +281,7 @@ async def submit_visitor_form(
     try:
         success = update_visitor_details_for_last(vehicle, name, phone, purpose)
         
-        success_message = "✅ Visitor logged successfully!" if success else "❌ Error updating details"
+        success_message = "Visitor logged successfully!" if success else "Error updating details"
         
         return templates.TemplateResponse(
             "form.html",
@@ -298,7 +298,7 @@ async def submit_visitor_form(
             {
                 "request": request,
                 "plate": vehicle,
-                "success_message": f"❌ Error: {str(e)}"
+                "success_message": f"Error: {str(e)}"
             }
         )
 

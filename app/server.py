@@ -17,6 +17,6 @@ def visitor_form():
         # update using vehicle number from form
         csv_utils.update_visitor_details_for_last(vehicle, name, phone, purpose)
 
-        success_message = "✅ Visitor logged successfully!"
+        success_message = "Visitor logged successfully!"
 
     return render_template("form.html", plate=plate_number, success_message=success_message)

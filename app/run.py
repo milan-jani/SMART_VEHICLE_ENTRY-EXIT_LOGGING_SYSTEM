@@ -24,7 +24,7 @@ def main():
     else:
         # Existing open entry -> Out_Time fill
         csv_utils.update_out_time(plate_number, now_time)
-        print(f"🚗 Vehicle {plate_number} exited at {now_time}")
+        print(f"[EXIT] Vehicle {plate_number} exited at {now_time}")
 
 if __name__ == "__main__":
     main()

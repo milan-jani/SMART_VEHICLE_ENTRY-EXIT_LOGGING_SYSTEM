@@ -33,20 +33,20 @@ def detect_plate_from_image(image_path: str) -> Optional[str]:
         if result.get("results") and len(result["results"]) > 0:
             plate_number = result["results"][0]["plate"].upper()
             confidence = result["results"][0].get("score", 0)
-            print(f"✅ Detected Plate: {plate_number} (Confidence: {confidence:.2f})")
+            print(f"[DETECTED] Plate: {plate_number} (Confidence: {confidence:.2f})")
             return plate_number
         else:
-            print("❌ No plate detected in image.")
+            print("[ERROR] No plate detected in image.")
             return None
     
     except FileNotFoundError:
-        print(f"❌ Image file not found: {image_path}")
+        print(f"[ERROR] Image file not found: {image_path}")
         return None
     except requests.RequestException as e:
-        print(f"❌ API request failed: {str(e)}")
+        print(f"[ERROR] API request failed: {str(e)}")
         return None
     except Exception as e:
-        print(f"❌ Error detecting plate: {str(e)}")
+        print(f"[ERROR] Error detecting plate: {str(e)}")
         return None
 
 
@@ -80,11 +80,11 @@ def detect_plate_with_details(image_path: str) -> Optional[Dict]:
                 "box": plate_data.get("box", {})
             }
         else:
-            print("❌ No plate detected in image.")
+            print("[ERROR] No plate detected in image.")
             return None
     
     except Exception as e:
-        print(f"❌ Error detecting plate: {str(e)}")
+        print(f"[ERROR] Error detecting plate: {str(e)}")
         return None
 
 

@@ -46,19 +46,19 @@ def send_new_entry(vehicle_no: str, image_path: str) -> dict:
             
             if api_status == 'warning':
                 # Vehicle already has an open entry (already inside)
-                print(f"⚠️ {result.get('message', 'Vehicle already inside')}")
+                print(f"[WARNING] {result.get('message', 'Vehicle already inside')}")
                 return {'success': True, 'status': 'existing'}
             else:
                 # New entry created successfully
-                print(f"✅ {result.get('message', 'Entry created successfully')}")
+                print(f"[SUCCESS] {result.get('message', 'Entry created successfully')}")
                 return {'success': True, 'status': 'new'}
         else:
-            print(f"❌ API Error: {response.status_code} - {response.text}")
+            print(f"[ERROR] API Error: {response.status_code} - {response.text}")
             return {'success': False, 'status': 'error'}
     
     except requests.RequestException as e:
-        print(f"❌ Failed to send entry to API: {str(e)}")
-        print("⚠️ Make sure the backend server is running!")
+        print(f"[ERROR] Failed to send entry to API: {str(e)}")
+        print("[WARNING] Make sure the backend server is running!")
         return {'success': False, 'status': 'error'}
 
 
@@ -84,18 +84,18 @@ def send_exit_update(vehicle_no: str) -> bool:
         
         if response.status_code == 200:
             result = response.json()
-            print(f"✅ {result.get('message', 'Exit updated successfully')}")
+            print(f"[SUCCESS] {result.get('message', 'Exit updated successfully')}")
             return True
         elif response.status_code == 404:
-            print(f"⚠️ No open entry found for vehicle {vehicle_no}")
+            print(f"[WARNING] No open entry found for vehicle {vehicle_no}")
             return False
         else:
-            print(f"❌ API Error: {response.status_code} - {response.text}")
+            print(f"[ERROR] API Error: {response.status_code} - {response.text}")
             return False
     
     except requests.RequestException as e:
-        print(f"❌ Failed to send exit update to API: {str(e)}")
-        print("⚠️ Make sure the backend server is running!")
+        print(f"[ERROR] Failed to send exit update to API: {str(e)}")
+        print("[WARNING] Make sure the backend server is running!")
         return False
 
 
@@ -114,7 +114,7 @@ def check_existing_entry(vehicle_no: str) -> Optional[dict]:
         # For now, we'll handle this in send_new_entry response
         pass
     except Exception as e:
-        print(f"❌ Error checking existing entry: {str(e)}")
+        print(f"[ERROR] Error checking existing entry: {str(e)}")
     return None
 
 
@@ -127,10 +127,10 @@ def open_visitor_form(vehicle_no: str) -> None:
     """
     try:
         form_url = f"{API_FORM_URL}?plate={vehicle_no}"
-        print(f"🌐 Opening visitor form: {form_url}")
+        print(f"[BROWSER] Opening visitor form: {form_url}")
         webbrowser.open(form_url)
     except Exception as e:
-        print(f"❌ Failed to open form: {str(e)}")
+        print(f"[ERROR] Failed to open form: {str(e)}")
 
 
 def process_vehicle(plate_number: str, image_path: str) -> None:
@@ -141,40 +141,40 @@ def process_vehicle(plate_number: str, image_path: str) -> None:
         plate_number: Detected plate number
         image_path: Path to captured image
     """
-    print(f"\n✅ Plate detected: {plate_number}")
+    print(f"\n[SUCCESS] Plate detected: {plate_number}")
     
     # Check vehicle status and send to API
-    print("📤 Checking vehicle status...")
+    print("[PROCESSING] Checking vehicle status...")
     entry_result = send_new_entry(plate_number, image_path)
     
     if not entry_result['success']:
         # API error - could not process
-        print("⚠️ Could not process vehicle. Check API logs.")
+        print("[WARNING] Could not process vehicle. Check API logs.")
     
     elif entry_result['status'] == 'new':
         # New vehicle entry created - open form for visitor details
-        print(f"🆕 New vehicle entry created!")
-        print(f"📋 Vehicle {plate_number} marked as INSIDE")
+        print(f"[NEW ENTRY] New vehicle entry created!")
+        print(f"[LOGGED] Vehicle {plate_number} marked as INSIDE")
         
         if AUTO_OPEN_FORM:
-            print("🌐 Opening visitor form...")
+            print("[BROWSER] Opening visitor form...")
             open_visitor_form(plate_number)
-            print("⏳ Please fill out the visitor form in your browser.")
+            print("[INFO] Please fill out the visitor form in your browser.")
         else:
-            print(f"💡 Visit {API_FORM_URL}?plate={plate_number} to fill visitor details")
+            print(f"[INFO] Visit {API_FORM_URL}?plate={plate_number} to fill visitor details")
     
     elif entry_result['status'] == 'existing':
         # Vehicle already has an open entry (already inside) - mark as exit
-        print(f"🔄 Vehicle {plate_number} is already INSIDE")
-        print("📤 Marking as EXIT...")
+        print(f"[UPDATE] Vehicle {plate_number} is already INSIDE")
+        print("[PROCESSING] Marking as EXIT...")
         
         exit_success = send_exit_update(plate_number)
         
         if exit_success:
-            print(f"✅ Vehicle {plate_number} marked as EXITED!")
-            print(f"🚗 Exit time recorded successfully")
+            print(f"[SUCCESS] Vehicle {plate_number} marked as EXITED!")
+            print(f"[LOGGED] Exit time recorded successfully")
         else:
-            print(f"❌ Failed to record exit time")
+            print(f"[ERROR] Failed to record exit time")
 
 
 def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
@@ -190,11 +190,11 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
         camera_index: Camera device index
     """
     print("\n" + "="*60)
-    print("🚗 HYBRID LOGGING SYSTEM - CONTINUOUS MONITORING MODE")
+    print("HYBRID LOGGING SYSTEM - CONTINUOUS MONITORING MODE")
     print("="*60 + "\n")
-    print("📹 Camera will stay ON continuously")
-    print("📸 Press 'c' to capture and process vehicle")
-    print("❌ Press 'q' to quit and close camera")
+    print("Camera will stay ON continuously")
+    print("Press 'c' to capture and process vehicle")
+    print("Press 'q' to quit and close camera")
     print("\n" + "="*60 + "\n")
     
     import cv2
@@ -204,22 +204,22 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
     # Open camera once
     cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
-        print("❌ Camera not found. Please check camera connection.")
+        print("[ERROR] Camera not found. Please check camera connection.")
         return
     
-    print("✅ Camera initialized successfully!")
-    print("🎥 Live preview starting...\n")
+    print("[SUCCESS] Camera initialized successfully!")
+    print("Live preview starting...\n")
     
     try:
         while True:
             # Read frame from camera
             ret, frame = cap.read()
             if not ret:
-                print("⚠️ Failed to capture frame. Retrying...")
+                print("[WARNING] Failed to capture frame. Retrying...")
                 continue
             
             # Show live preview
-            cv2.imshow("🚗 Hybrid Logging System - Press 'c' to capture | 'q' to quit", frame)
+            cv2.imshow("Hybrid Logging System - Press 'c' to capture | 'q' to quit", frame)
             
             # Wait for key press (1ms delay)
             key = cv2.waitKey(1) & 0xFF
@@ -227,7 +227,7 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
             if key == ord('c'):
                 # Capture button pressed
                 print("\n" + "-"*60)
-                print("📸 Capturing image...")
+                print("[CAPTURE] Capturing image...")
                 
                 # Save image to photos directory
                 photo_dir = os.path.join(
@@ -239,39 +239,39 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                 image_path = os.path.join(photo_dir, f"capture_{int(time.time())}.jpg")
                 
                 cv2.imwrite(image_path, frame)
-                print(f"🖼️ Saved: {image_path}")
+                print(f"[SAVED] {image_path}")
                 
                 # Detect plate number
-                print("🔍 Detecting plate number...")
+                print("[DETECTING] Plate number...")
                 plate_number = detect_plate_from_image(image_path)
                 
                 if not plate_number:
-                    print("❌ No plate detected. Please try again.")
+                    print("[ERROR] No plate detected. Please try again.")
                     print("-"*60 + "\n")
-                    print("🎥 Camera still running... Press 'c' to capture again")
+                    print("[INFO] Camera still running... Press 'c' to capture again")
                     continue
                 
                 # Process the vehicle
                 process_vehicle(plate_number, image_path)
                 
                 print("-"*60 + "\n")
-                print("🎥 Camera still running... Ready for next vehicle")
-                print("📸 Press 'c' to capture | 'q' to quit\n")
+                print("[INFO] Camera still running... Ready for next vehicle")
+                print("[INFO] Press 'c' to capture | 'q' to quit\n")
             
             elif key == ord('q'):
                 # Quit button pressed
                 print("\n" + "="*60)
-                print("🛑 Shutting down camera...")
+                print("[SHUTDOWN] Shutting down camera...")
                 break
     
     except KeyboardInterrupt:
-        print("\n\n⚠️ Interrupted by user (Ctrl+C)")
+        print("\n\n[WARNING] Interrupted by user (Ctrl+C)")
     
     finally:
         # Clean up
         cap.release()
         cv2.destroyAllWindows()
-        print("✅ Camera closed successfully")
+        print("[SUCCESS] Camera closed successfully")
         print("="*60 + "\n")
 
 
@@ -282,9 +282,9 @@ def main():
     try:
         run_device_workflow()
     except KeyboardInterrupt:
-        print("\n\n⚠️ Workflow interrupted by user.")
+        print("\n\n[WARNING] Workflow interrupted by user.")
     except Exception as e:
-        print(f"\n\n❌ Unexpected error: {str(e)}")
+        print(f"\n\n[ERROR] Unexpected error: {str(e)}")
         import traceback
         traceback.print_exc()
 
