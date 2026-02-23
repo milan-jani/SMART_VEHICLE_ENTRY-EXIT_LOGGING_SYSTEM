@@ -3,42 +3,338 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visitor Entry</title>
-    <!-- Link to CSS in static folder -->
-    <link rel="stylesheet" href="/static/css/style.css">
+    <title>Vehicle Entry Form - Smart Logging System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0d9488 0%, #0a3d47 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .form-wrapper {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 500px;
+            padding: 40px;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .form-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #0d9488, #14b8a6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 1.8rem;
+        }
+
+        .form-header h2 {
+            color: #1e293b;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .form-header p {
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+
+        .success-message {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46;
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            font-weight: 600;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border-left: 4px solid #10b981;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        label i {
+            color: #0d9488;
+            font-size: 1rem;
+        }
+
+        input[type="text"],
+        input[type="tel"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+            color: #1e293b;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="tel"]:focus {
+            outline: none;
+            border-color: #0d9488;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
+        }
+
+        input[type="text"]:read-only {
+            background: #f1f5f9;
+            color: #64748b;
+            cursor: not-allowed;
+        }
+
+        input:invalid:not(:focus):not(:placeholder-shown) {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        input:valid:not(:focus):not(:placeholder-shown):not(:read-only) {
+            border-color: #10b981;
+        }
+
+        .error-text {
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 5px;
+            display: none;
+        }
+
+        input:invalid:not(:focus):not(:placeholder-shown) ~ .error-text {
+            display: block;
+        }
+
+        input::placeholder {
+            color: #94a3b8;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #0d9488, #14b8a6);
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #0f766e, #0d9488);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(13, 148, 136, 0.3);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .dashboard-link {
+            margin-top: 25px;
+            text-align: center;
+        }
+
+        .dashboard-link a {
+            color: #0d9488;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .dashboard-link a:hover {
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+
+        @media (max-width: 600px) {
+            .form-wrapper {
+                padding: 30px 25px;
+            }
+
+            .form-header h2 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
 </head>
 <body>
+    <div class="form-wrapper">
+        <div class="form-header">
+            <div class="form-icon">
+                <i class="fas fa-car"></i>
+            </div>
+            <h2>Vehicle Entry Form</h2>
+            <p>Enter visitor details for entry logging</p>
+        </div>
 
-    <div class="form-container">
-        <h2>Visitor Entry Form</h2>
-
-        <!-- Success message -->
         {% if success_message %}
-            <div class="success-message">{{ success_message }}</div>
+            <div class="success-message">
+                <i class="fas fa-check-circle"></i>
+                <span>{{ success_message }}</span>
+            </div>
         {% endif %}
 
         <form method="POST" action="/api/form">
-            <label for="vehicle">Vehicle Number:</label>
-            <input type="text" id="vehicle" name="vehicle" value="{{ plate }}" readonly>
+            <div class="form-group">
+                <label for="vehicle">
+                    <i class="fas fa-car"></i>
+                    Vehicle Number
+                </label>
+                <input type="text" id="vehicle" name="vehicle" value="{{ plate }}" readonly>
+            </div>
 
-            <label for="name">Name:</label>
-            <input type="text" id="name" name="name" placeholder="Enter full name" required autofocus>
+            <div class="form-group">
+                <label for="name">
+                    <i class="fas fa-user"></i>
+                    Visitor Name
+                </label>
+                <input type="text" id="name" name="name" placeholder="Enter full name" 
+                       pattern="[A-Za-z\s]+" 
+                       title="Please enter letters only (no numbers or special characters)"
+                       required autofocus>
+            </div>
 
-            <label for="phone">Phone:</label>
-            <input type="text" id="phone" name="phone" placeholder="Enter phone number" required>
+            <div class="form-group">
+                <label for="phone">
+                    <i class="fas fa-phone"></i>
+                    Phone Number
+                </label>
+                <input type="tel" id="phone" name="phone" placeholder="Enter 10-digit phone number" 
+                       pattern="[0-9]{10}" 
+                       maxlength="10"
+                       title="Please enter exactly 10 digits"
+                       required>
+            </div>
 
-            <label for="purpose">Purpose:</label>
-            <input type="text" id="purpose" name="purpose" placeholder="Enter purpose of visit" required>
+            <div class="form-group">
+                <label for="purpose">
+                    <i class="fas fa-briefcase"></i>
+                    Purpose of Visit
+                </label>
+                <input type="text" id="purpose" name="purpose" placeholder="Enter purpose of visit" 
+                       pattern="[A-Za-z\s]+" 
+                       title="Please enter letters only (no numbers or special characters)"
+                       required>
+            </div>
 
-            <button type="submit" class="submit-btn">Submit</button>
+            <button type="submit" class="submit-btn">
+                <i class="fas fa-check"></i>
+                Submit Entry
+            </button>
         </form>
         
-        <div style="margin-top: 20px; text-align: center;">
-            <a href="/api/dashboard" style="color: #3498db; text-decoration: none;">
+        <div class="dashboard-link">
+            <a href="/api/dashboard">
+                <i class="fas fa-chart-line"></i>
                 View Dashboard
             </a>
         </div>
     </div>
 
+    <script>
+        // Phone number validation - only allow digits
+        document.getElementById('phone').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '');
+            if (this.value.length > 10) {
+                this.value = this.value.slice(0, 10);
+            }
+        });
+
+        // Name validation - only allow letters and spaces
+        document.getElementById('name').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^A-Za-z\s]/g, '');
+        });
+
+        // Purpose validation - only allow letters and spaces
+        document.getElementById('purpose').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^A-Za-z\s]/g, '');
+        });
+
+        // Form submission validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const phone = document.getElementById('phone').value;
+            const name = document.getElementById('name').value;
+            const purpose = document.getElementById('purpose').value;
+
+            if (phone.length !== 10) {
+                e.preventDefault();
+                alert('Phone number must be exactly 10 digits!');
+                document.getElementById('phone').focus();
+                return false;
+            }
+
+            if (!/^[A-Za-z\s]+$/.test(name)) {
+                e.preventDefault();
+                alert('Visitor name must contain only letters and spaces!');
+                document.getElementById('name').focus();
+                return false;
+            }
+
+            if (!/^[A-Za-z\s]+$/.test(purpose)) {
+                e.preventDefault();
+                alert('Purpose must contain only letters and spaces!');
+                document.getElementById('purpose').focus();
+                return false;
+            }
+        });
+    </script>
 </body>
 </html>

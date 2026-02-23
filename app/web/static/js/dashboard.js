@@ -185,6 +185,8 @@ function updatePieChart(stats) {
 function updateVehiclesTable(vehicles) {
     const tbody = document.getElementById('vehicles-tbody');
     
+    console.log('Updating table with vehicles:', vehicles); // Debug log
+    
     if (vehicles.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="loading"><i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 10px;"></i><div>No vehicles logged yet.</div></td></tr>';
         return;
@@ -195,64 +197,44 @@ function updateVehiclesTable(vehicles) {
     
     tbody.innerHTML = reversedVehicles.map((vehicle, index) => {
         const status = vehicle.out_time ? 
-            '<span class="status-badge status-out"><i class="fas fa-check-circle"></i> Exited</span>' : 
-            '<span class="status-badge status-in"><i class="fas fa-car-side"></i> Inside</span>';
+            '<span class="status-badge status-out">Exited</span>' : 
+            '<span class="status-badge status-in">Inside</span>';
         
-        const vehicleIcon = getVehicleIcon(index);
         const statusColor = vehicle.out_time ? '#f59e0b' : '#10b981';
         
-        return `
+        const row = `
             <tr style="animation: slideInUp 0.6s ease ${index * 0.08}s backwards;">
                 <td>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 1.5rem;">${vehicleIcon}</span>
-                        <strong style="font-size: 1.1rem;">${escapeHtml(vehicle.vehicle_no)}</strong>
-                    </div>
+                    <strong style="font-size: 0.95rem; letter-spacing: 0.3px;">${escapeHtml(vehicle.vehicle_no)}</strong>
                 </td>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-user-circle" style="color: #8b5cf6; font-size: 1.2rem;"></i>
-                        <span>${escapeHtml(vehicle.visitor_name) || '-'}</span>
-                    </div>
+                    ${escapeHtml(vehicle.visitor_name) || '-'}
                 </td>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-phone-alt" style="color: #3b82f6; font-size: 1rem;"></i>
-                        <span>${escapeHtml(vehicle.phone) || '-'}</span>
-                    </div>
+                    ${escapeHtml(vehicle.phone) || '-'}
                 </td>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-clipboard-list" style="color: #ec4899; font-size: 1rem;"></i>
-                        <span>${escapeHtml(vehicle.purpose) || '-'}</span>
-                    </div>
+                    ${escapeHtml(vehicle.purpose) || '-'}
                 </td>
                 <td>
-                    <div style="display: flex; flex-direction: column; gap: 3px;">
-                        <span style="display: flex; align-items: center; gap: 6px;">
-                            <i class="fas fa-sign-in-alt" style="color: #10b981; font-size: 1rem;"></i>
-                            <strong>${formatDateTime(vehicle.in_time)}</strong>
-                        </span>
-                    </div>
+                    <strong style="color: #10b981;">${formatDateTime(vehicle.in_time)}</strong>
                 </td>
                 <td>
-                    <div style="display: flex; flex-direction: column; gap: 3px;">
-                        ${vehicle.out_time ? `
-                            <span style="display: flex; align-items: center; gap: 6px;">
-                                <i class="fas fa-sign-out-alt" style="color: #f59e0b; font-size: 1rem;"></i>
-                                <strong>${formatDateTime(vehicle.out_time)}</strong>
-                            </span>
-                        ` : '<span style="color: #94a3b8;">-</span>'}
-                    </div>
+                    ${vehicle.out_time ? `<strong style="color: #ef4444;">${formatDateTime(vehicle.out_time)}</strong>` : '<span style="color: #94a3b8;">-</span>'}
                 </td>
-                <td>${status}</td>
+                <td style="text-align: center;">${status}</td>
             </tr>
         `;
+        
+        console.log('Generated row for vehicle:', vehicle.vehicle_no); // Debug log
+        return row;
     }).join('');
+    
+    console.log('Table updated successfully'); // Debug log
 }
 
 /**
- * Get random vehicle icon for visual variety
+ * Get vehicle icon
  */
 function getVehicleIcon(index) {
     return '<i class="fas fa-car"></i>';
