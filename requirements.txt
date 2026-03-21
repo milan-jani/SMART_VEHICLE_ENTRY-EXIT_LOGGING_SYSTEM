@@ -12,6 +12,8 @@ requests==2.31.0
 # Computer Vision
 numpy>=2.0.0
 opencv-python>=4.10.0
+opencv-python-headless>=4.10.0
+easyocr>=1.7.1
 
 # Data Validation
 pydantic>=2.10.0

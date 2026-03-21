@@ -8,9 +8,11 @@ from datetime import datetime
 from typing import Optional
 
 from app.device.camera import capture_with_preview
-from app.device.anpr import detect_plate_from_image
+from app.device.anpr import detect_plate_from_image as detect_plate_api
+from app.device.anpr_local import detect_plate_from_image as detect_plate_local
 from app.device.config import (
     DEFAULT_CAMERA_INDEX,
+    ANPR_MODE,
     API_NEW_ENTRY,
     API_UPDATE_EXIT,
     API_FORM_URL,
@@ -242,8 +244,16 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                 print(f"[SAVED] {image_path}")
                 
                 # Detect plate number
-                print("[DETECTING] Plate number...")
-                plate_number = detect_plate_from_image(image_path)
+                print(f"\n[DETECTING] Initializing Plate Reader (Mode: {ANPR_MODE.upper()})...")
+                plate_number = None
+                
+                if ANPR_MODE in ["local", "hybrid"]:
+                    plate_number = detect_plate_local(image_path)
+                    
+                if not plate_number and ANPR_MODE in ["api", "hybrid"]:
+                    if ANPR_MODE == "hybrid":
+                        print("[INFO] Fallback: Local OCR failed. Sending to Cloud API...")
+                    plate_number = detect_plate_api(image_path)
                 
                 if not plate_number:
                     print("[ERROR] No plate detected. Please try again.")
