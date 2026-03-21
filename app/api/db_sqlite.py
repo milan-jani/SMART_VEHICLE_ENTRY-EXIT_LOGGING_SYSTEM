@@ -1,0 +1,264 @@
+import sqlite3
+import os
+from datetime import datetime
+from typing import Dict, List, Optional, Any
+
+# Assuming the data directory is at the root of the project
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DB_PATH = os.path.join(BASE_DIR, 'data', 'smart_gate.db')
+
+def get_db_connection() -> sqlite3.Connection:
+    """Gets a connection to the SQLite database, ensuring thread safety if needed."""
+    # Ensure data directory exists
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+    return conn
+
+def init_db():
+    """Initializes the database schema if it doesn't exist."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Create visits table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS visits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_no TEXT NOT NULL,
+        visitor_name TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        purpose TEXT DEFAULT '',
+        in_time TEXT NOT NULL,
+        out_time TEXT DEFAULT '',
+        vehicle_image_path TEXT DEFAULT '',
+        id_card_image_path TEXT DEFAULT '',
+        visitor_type TEXT DEFAULT 'unknown',
+        status TEXT DEFAULT 'inside'
+    )
+    ''')
+
+    # Create indexes for fast querying
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_visits_vehicle_no ON visits(vehicle_no)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_visits_status ON visits(status)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_visits_in_time ON visits(in_time)')
+
+    # Create regular_users table (whitelist)
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS regular_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_no TEXT UNIQUE NOT NULL,
+        user_name TEXT DEFAULT '',
+        flat_no TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        created_at TEXT NOT NULL
+    )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+# --- CRUD Operations for Visits ---
+
+def create_visit(vehicle_no: str, image_path: str = "", visitor_type: str = "unknown") -> Optional[int]:
+    """Creates a new visit record (entry). Returns the new visit ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    in_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    cursor.execute('''
+        INSERT INTO visits (vehicle_no, vehicle_image_path, in_time, visitor_type, status)
+        VALUES (?, ?, ?, ?, 'inside')
+    ''', (vehicle_no, image_path, in_time, visitor_type))
+    
+    visit_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return visit_id
+
+def close_visit(vehicle_no: str) -> bool:
+    """Marks the latest open visit for a vehicle as 'exited'."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    out_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Update the most recent 'inside' visit for this vehicle
+    cursor.execute('''
+        UPDATE visits 
+        SET out_time = ?, status = 'exited'
+        WHERE id = (
+            SELECT id FROM visits
+            WHERE vehicle_no = ? AND status = 'inside'
+            ORDER BY in_time DESC LIMIT 1
+        )
+    ''', (out_time, vehicle_no))
+    
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
+
+def update_visit_details(visit_id: int, name: str, phone: str, purpose: str, id_card_path: str = "") -> bool:
+    """Updates visitor details for a specific visit."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE visits
+        SET visitor_name = ?, phone = ?, purpose = ?, id_card_image_path = ?
+        WHERE id = ?
+    ''', (name, phone, purpose, id_card_path, visit_id))
+    
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
+
+def update_latest_visit_details_by_vehicle(vehicle_no: str, name: str, phone: str, purpose: str) -> bool:
+    """Compatibility function: Updates details for the latest open visit of a vehicle."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Subquery to find the ID of the latest 'inside' visit for this vehicle
+    cursor.execute('''
+        UPDATE visits
+        SET visitor_name = ?, phone = ?, purpose = ?
+        WHERE id = (
+            SELECT id FROM visits 
+            WHERE vehicle_no = ? AND status = 'inside' 
+            ORDER BY in_time DESC LIMIT 1
+        )
+    ''', (name, phone, purpose, vehicle_no))
+    
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
+
+# --- Query Operations for Visits ---
+
+def get_all_visits(limit: int = 100) -> List[Dict[str, Any]]:
+    """Retrieves all visits, ordered by entry time descending."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT * FROM visits 
+        ORDER BY in_time DESC LIMIT ?
+    ''', (limit,))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def get_open_visits() -> List[Dict[str, Any]]:
+    """Retrieves all currently 'inside' visits."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''SELECT * FROM visits WHERE status = 'inside' ORDER BY in_time DESC''')
+    
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def find_open_visit_by_vehicle(vehicle_no: str) -> Optional[Dict[str, Any]]:
+    """Finds an open ('inside') visit for a specific vehicle."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT * FROM visits 
+        WHERE vehicle_no = ? AND status = 'inside' 
+        ORDER BY in_time DESC LIMIT 1
+    ''', (vehicle_no,))
+    
+    row = cursor.fetchone()
+    conn.close()
+    
+    return dict(row) if row else None
+
+# --- Regular Users (Whitelist) Operations ---
+
+def is_regular_user(vehicle_no: str) -> bool:
+    """Checks if a vehicle is in the regular users whitelist."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT 1 FROM regular_users WHERE vehicle_no = ?', (vehicle_no,))
+    result = cursor.fetchone()
+    conn.close()
+    
+    return result is not None
+
+def mark_regular_user(vehicle_no: str, name: str = "", phone: str = "", flat_no: str = "") -> bool:
+    """Adds or updates a vehicle in the regular users whitelist."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Use REPLACE to update if vehicle_no already exists (since it's UNIQUE)
+    cursor.execute('''
+        INSERT OR REPLACE INTO regular_users (vehicle_no, user_name, phone, flat_no, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (vehicle_no, name, phone, flat_no, created_at))
+    
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
+
+def get_all_regular_users() -> List[Dict[str, Any]]:
+    """Retrieves all regular users."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM regular_users ORDER BY created_at DESC')
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+# --- Dashboard & Statistics ---
+
+def get_stats() -> Dict[str, Any]:
+    """Calculates summary statistics for the dashboard."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    stats = {
+        "total_entries": 0,
+        "currently_inside": 0,
+        "unique_vehicles": 0,
+        "regular_visits": 0,
+        "visitor_visits": 0
+    }
+    
+    # Total Entries
+    cursor.execute('SELECT COUNT(*) FROM visits')
+    stats["total_entries"] = cursor.fetchone()[0]
+    
+    # Currently Inside
+    cursor.execute("SELECT COUNT(*) FROM visits WHERE status = 'inside'")
+    stats["currently_inside"] = cursor.fetchone()[0]
+    
+    # Unique Vehicles
+    cursor.execute('SELECT COUNT(DISTINCT vehicle_no) FROM visits')
+    stats["unique_vehicles"] = cursor.fetchone()[0]
+    
+    # Regular vs Visitor Counts
+    cursor.execute('''
+        SELECT visitor_type, COUNT(*) 
+        FROM visits 
+        GROUP BY visitor_type
+    ''')
+    type_counts = dict(cursor.fetchall())
+    stats["regular_visits"] = type_counts.get("regular", 0)
+    stats["visitor_visits"] = type_counts.get("visitor", 0)
+    
+    conn.close()
+    return stats
+
+# Initialize the DB schema when this module is imported
+init_db()

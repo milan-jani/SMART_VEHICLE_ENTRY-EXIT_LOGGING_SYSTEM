@@ -10,13 +10,15 @@ from typing import Optional, List
 from datetime import datetime
 import os
 
-from app.api.csv_utils import (
-    append_entry,
-    read_all_rows,
-    update_out_time,
-    update_visitor_details_for_last,
-    find_last_open_entry,
-    get_vehicle_stats
+from .db_sqlite import (
+    create_visit,
+    close_visit,
+    update_latest_visit_details_by_vehicle,
+    find_open_visit_by_vehicle,
+    get_all_visits,
+    get_stats,
+    is_regular_user,
+    mark_regular_user
 )
 
 router = APIRouter()
@@ -66,35 +68,45 @@ async def create_new_entry(entry: NewEntryRequest):
         in_time = entry.in_time or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Check if vehicle already has an open entry
-        idx, existing_row = find_last_open_entry(entry.vehicle_no)
+        existing_row = find_open_visit_by_vehicle(entry.vehicle_no)
         
-        if idx is not None:
+        if existing_row:
             return {
                 "status": "warning",
                 "message": f"Vehicle {entry.vehicle_no} already has an open entry",
                 "existing_entry": {
-                    "in_time": existing_row[4],
-                    "name": existing_row[1],
-                    "phone": existing_row[2],
-                    "purpose": existing_row[3]
+                    "in_time": existing_row.get("in_time"),
+                    "name": existing_row.get("visitor_name"),
+                    "phone": existing_row.get("phone"),
+                    "purpose": existing_row.get("purpose")
                 }
             }
         
+        # Check if regular user to set visitor type
+        visitor_type = "regular" if is_regular_user(entry.vehicle_no) else "visitor"
+        
         # Create new entry
-        append_entry(
+        create_visit(
             vehicle_no=entry.vehicle_no,
             image_path=entry.image_path,
-            in_time=in_time,
-            name=entry.name,
-            phone=entry.phone,
-            purpose=entry.purpose
+            visitor_type=visitor_type
         )
+        
+        # We optionally update the details immediately if passed in the new entry
+        if entry.name or entry.phone or entry.purpose:
+            update_latest_visit_details_by_vehicle(
+                entry.vehicle_no,
+                entry.name,
+                entry.phone,
+                entry.purpose
+            )
         
         return {
             "status": "success",
-            "message": f"New entry created for vehicle {entry.vehicle_no}",
+            "message": f"New entry created for vehicle {entry.vehicle_no}. Type: {visitor_type}",
             "vehicle_no": entry.vehicle_no,
-            "in_time": in_time
+            "in_time": in_time,
+            "visitor_type": visitor_type
         }
     
     except Exception as e:
@@ -110,7 +122,7 @@ async def update_exit_time(exit_data: UpdateExitRequest):
     try:
         out_time = exit_data.out_time or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        success = update_out_time(exit_data.vehicle_no, out_time)
+        success = close_visit(exit_data.vehicle_no)
         
         if not success:
             raise HTTPException(
@@ -138,7 +150,7 @@ async def update_visitor_details(details: UpdateDetailsRequest):
     Called from the visitor form submission
     """
     try:
-        success = update_visitor_details_for_last(
+        success = update_latest_visit_details_by_vehicle(
             details.vehicle_no,
             details.name,
             details.phone,
@@ -170,21 +182,7 @@ async def get_all_vehicles():
     Returns list of all logged vehicles
     """
     try:
-        rows = read_all_rows()
-        
-        # Skip header row
-        vehicles = []
-        for row in rows[1:]:
-            if len(row) >= 7:
-                vehicles.append({
-                    "vehicle_no": row[0],
-                    "visitor_name": row[1],
-                    "phone": row[2],
-                    "purpose": row[3],
-                    "in_time": row[4],
-                    "out_time": row[5],
-                    "image_path": row[6]
-                })
+        vehicles = get_all_visits(limit=500)
         
         return {
             "status": "success",
@@ -203,7 +201,7 @@ async def get_statistics():
     Returns counts and analytics about vehicle entries
     """
     try:
-        stats = get_vehicle_stats()
+        stats = get_stats()
         
         return {
             "status": "success",
@@ -220,20 +218,15 @@ async def get_vehicle_by_number(vehicle_no: str):
     Get all entries for a specific vehicle number
     """
     try:
-        rows = read_all_rows()
+        from .db_sqlite import get_db_connection
         
-        vehicle_entries = []
-        for row in rows[1:]:
-            if len(row) >= 7 and row[0] == vehicle_no:
-                vehicle_entries.append({
-                    "vehicle_no": row[0],
-                    "visitor_name": row[1],
-                    "phone": row[2],
-                    "purpose": row[3],
-                    "in_time": row[4],
-                    "out_time": row[5],
-                    "image_path": row[6]
-                })
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM visits WHERE vehicle_no = ? ORDER BY in_time DESC', (vehicle_no,))
+        rows = cursor.fetchall()
+        conn.close()
+        
+        vehicle_entries = [dict(row) for row in rows]
         
         if not vehicle_entries:
             raise HTTPException(
@@ -252,6 +245,38 @@ async def get_vehicle_by_number(vehicle_no: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching vehicle: {str(e)}")
+
+# New classification endpoints
+
+@router.get("/check-vehicle/{vehicle_no}")
+async def check_vehicle_type(vehicle_no: str):
+    """
+    Checks if a vehicle is a regular user or visitor
+    """
+    try:
+        if is_regular_user(vehicle_no):
+            return {"status": "success", "type": "regular"}
+        return {"status": "success", "type": "visitor"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking vehicle type: {str(e)}")
+
+class MarkRegularRequest(BaseModel):
+    vehicle_no: str
+    name: Optional[str] = ""
+    phone: Optional[str] = ""
+
+@router.post("/mark-regular")
+async def mark_vehicle_as_regular(info: MarkRegularRequest):
+    """
+    Whitelists a regular vehicle in the database
+    """
+    try:
+        success = mark_regular_user(info.vehicle_no, info.name, info.phone)
+        if success:
+            return {"status": "success", "message": f"{info.vehicle_no} marked as Regular User"}
+        raise HTTPException(status_code=500, detail="Failed to mark as regular")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 
 # Web Form Routes (served via FastAPI)
@@ -279,7 +304,7 @@ async def submit_visitor_form(
     Handle visitor form submission
     """
     try:
-        success = update_visitor_details_for_last(vehicle, name, phone, purpose)
+        success = update_latest_visit_details_by_vehicle(vehicle, name, phone, purpose)
         
         success_message = "Visitor logged successfully!" if success else "Error updating details"
         
