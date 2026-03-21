@@ -6,6 +6,7 @@ Does NOT require an active internet connection or paid API credits.
 import os
 import cv2
 import easyocr
+import numpy as np
 import re
 import warnings
 from typing import Optional, Dict
@@ -20,22 +21,46 @@ reader = easyocr.Reader(['en'], gpu=False, verbose=False)
 
 def preprocess_image(image_path: str):
     """
-    Applies filters to the image to make it easier for OCR to read the text.
-    Converts to grayscale and reduces noise.
+    Advanced preprocessing: Finds the license plate contour and crops it out.
+    If no contour is found, it falls back to the full grayscale image.
     """
     img = cv2.imread(image_path)
     if img is None:
         return None
         
-    # Convert to grayscale (OCR loves high contrast B&W)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    bfilter = cv2.bilateralFilter(gray, 11, 17, 17) # Noise reduction
+    edged = cv2.Canny(bfilter, 30, 200) # Edge detection
     
-    # Noise reduction (Bilateral filter keeps edges sharp but blurs the rest)
-    bfilter = cv2.bilateralFilter(gray, 11, 17, 17) 
+    # Find contours
+    contours, _ = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10] # Top 10 biggest shapes
     
-    # Additional edge detection or thresholding could be added here if needed,
-    # but EasyOCR works quite well with just clean grayscale.
-    return bfilter
+    location = None
+    for contour in contours:
+        approx = cv2.approxPolyDP(contour, 10, True)
+        if len(approx) == 4: # finding a rectangular shape roughly
+            location = approx
+            break
+            
+    if location is None:
+        print("[INFO] No clear plate contour found, scanning full image...")
+        return bfilter # Fallback to original blurred image
+        
+    # Create mask and crop
+    mask = np.zeros(gray.shape, np.uint8)
+    cv2.drawContours(mask, [location], 0, 255, -1)
+    
+    try:
+        (x, y) = np.where(mask == 255)
+        (x1, y1) = (np.min(x), np.min(y))
+        (x2, y2) = (np.max(x), np.max(y))
+        cropped_image = gray[x1:x2+1, y1:y2+1]
+        print("[INFO] Plate cleanly cropped from background!")
+        return cropped_image
+    except Exception:
+        print("[INFO] Error cropping Plate, scanning full image...")
+        return bfilter
 
 def validate_and_clean_plate(raw_text: str) -> Optional[str]:
     """
