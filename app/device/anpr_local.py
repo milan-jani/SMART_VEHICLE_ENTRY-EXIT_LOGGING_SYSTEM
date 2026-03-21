@@ -1,16 +1,15 @@
 """
-Local ANPR Module (YOLOv8 + EasyOCR)
+Local ANPR Module (YOLOv8 + PaddleOCR)
 Detects license plates using an industry-standard YOLO object detection model.
-Extracts text from the cropped plate using EasyOCR.
+Extracts text from the cropped plate using Baidu's highly accurate PaddleOCR.
 """
 import os
 import cv2
-import easyocr
 import re
 import warnings
 from typing import Optional
 
-# Suppress PyTorch/EasyOCR warnings
+# Suppress warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 try:
@@ -19,8 +18,19 @@ except ImportError:
     print("[ERROR] ultralytics package not found. Run: pip install ultralytics")
     YOLO = None
 
-print("[INFO] Loading Offline AI Models (YOLOv8 & EasyOCR)...")
-reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+import logging
+logging.getLogger("ppocr").setLevel(logging.WARNING) # Suppress PaddleOCR spam
+
+try:
+    from paddleocr import PaddleOCR
+    # Initialize PaddleOCR globally (loads once). lang='en' for English alphabets and numbers
+    # show_log=False prevents excessive terminal spam, use_angle_cls=True handles slight tilts
+    ocr_reader = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
+except ImportError:
+    print("[ERROR] paddleocr package not found. Run: pip install paddlepaddle paddleocr")
+    ocr_reader = None
+
+print("[INFO] Loading Offline AI Models (YOLOv8 & PaddleOCR)...")
 
 # Load YOLO model
 project_root = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -29,7 +39,6 @@ yolo_model_path = os.path.join(models_dir, "license_plate_detector.pt")
 
 plate_detector = None
 if YOLO and os.path.exists(yolo_model_path):
-    # ultralytics automatically suppresses some logs when verbose=False in inference
     plate_detector = YOLO(yolo_model_path)
     print("[SUCCESS] YOLOv8 Plate Detector Loaded!")
 else:
@@ -41,19 +50,21 @@ def validate_and_clean_plate(raw_text: str) -> Optional[str]:
     Validates if the text looks roughly like a plate.
     """
     cleaned = re.sub(r'[^A-Z0-9]', '', raw_text.upper())
+    # Indian plates are typically 8-10 chars. Let's accept 4 to 12 just in case.
     if 4 <= len(cleaned) <= 12:
         return cleaned
     return None
 
 def detect_plate_from_image(image_path: str) -> Optional[str]:
     """
-    Local OCR detection using YOLOv8 for cropping and EasyOCR for reading.
+    Local OCR detection using YOLOv8 for cropping and PaddleOCR for reading.
+    Returns cleaned plate ONLY if PaddleOCR confidence is high enough.
     """
-    if not plate_detector:
-        print("[ERROR] YOLO model is not initialized. Falling back to API.")
+    if not plate_detector or not ocr_reader:
+        print("[ERROR] AI models are not initialized. Falling back to API.")
         return None
 
-    print(f"[PROCESSING] YOLO Scanning for plates in: {os.path.basename(image_path)}")
+    print(f"\n[PROCESSING] YOLO Scanning for plates in: {os.path.basename(image_path)}")
     try:
         # Run YOLO inference
         results = plate_detector(image_path, verbose=False)
@@ -66,7 +77,7 @@ def detect_plate_from_image(image_path: str) -> Optional[str]:
         # Get coordinates of the best bounding box (highest confidence)
         x1, y1, x2, y2 = map(int, box_data[0].xyxy[0])
         conf = float(box_data[0].conf[0])
-        print(f"[SUCCESS-LOCAL] YOLO correctly cropped the Plate Region! (Confidence: {conf:.2f})")
+        print(f"[SUCCESS-LOCAL] YOLO exactly cropped the Plate Region! (Confidence: {conf:.2f})")
         
         # Crop the plate using OpenCV
         img = cv2.imread(image_path)
@@ -75,32 +86,47 @@ def detect_plate_from_image(image_path: str) -> Optional[str]:
             
         plate_crop = img[y1:y2, x1:x2]
         
-        # EasyOCR prefers grayscale for better text contrast
+        # Super-Resolution & Pre-processing for OCR
+        # 1. Resize Crop (2x) to make characters larger for PaddleOCR
+        plate_crop = cv2.resize(plate_crop, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        # 2. Convert to Grayscale
         gray_crop = cv2.cvtColor(plate_crop, cv2.COLOR_BGR2GRAY)
         
-        # EasyOCR text extraction
-        ocr_results = reader.readtext(
-            gray_crop, 
-            allowlist='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        )
+        print("[PROCESSING] PaddleOCR reading text...")
+        # PaddleOCR extraction
+        ocr_results = ocr_reader.ocr(gray_crop, cls=True)
         
-        if not ocr_results:
-            print("[ERROR] EasyOCR could not find text inside the YOLO box.")
+        if not ocr_results or not ocr_results[0]:
+            print("[ERROR] PaddleOCR could not find text inside the YOLO box.")
             return None
             
-        # Sort results by Y-coordinate first (top to bottom reading for stacked plates like bikes)
-        # However, Indian plates are usually horizontal. If horizontal, sort by X.
-        # Let's just combine all text since EasyOCR returns pieces
-        full_text = "".join([t[1] for t in ocr_results])
+        # ocr_results[0] is a list of lines: [[[x,y coords], ('text', confidence)], ...]
+        full_text = ""
+        total_conf = 0.0
+        piece_count = 0
+        
+        for line in ocr_results[0]:
+            text, text_conf = line[1]
+            full_text += text
+            total_conf += text_conf
+            piece_count += 1
+            
+        avg_conf = total_conf / piece_count if piece_count > 0 else 0
         cleaned_plate = validate_and_clean_plate(full_text)
         
         if cleaned_plate:
-            print(f"[SUCCESS-LOCAL] AI Extracted Plate: {cleaned_plate}")
+            print(f"[SUCCESS-LOCAL] PaddleOCR Extracted: {cleaned_plate} (Confidence: {avg_conf:.2f})")
+            
+            # STRICT CONFIDENCE CHECK (0.85 = 85%)
+            if avg_conf < 0.85:
+                print(f"[WARNING] Local OCR confidence ({avg_conf:.2f}) is below 85% threshold. Falling back to Cloud API...")
+                return None
+                
             return cleaned_plate
             
         print("[ERROR] Text found, but did not match a valid license plate format.")
         return None
         
     except Exception as e:
-        print(f"[ERROR] Local YOLO+OCR pipeline crashed: {str(e)}")
+        print(f"[ERROR] Local YOLO+PaddleOCR pipeline crashed: {str(e)}")
         return None

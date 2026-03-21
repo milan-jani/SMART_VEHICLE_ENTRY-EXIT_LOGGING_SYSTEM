@@ -13,7 +13,10 @@ requests==2.31.0
 numpy>=2.0.0
 opencv-python>=4.10.0
 opencv-python-headless>=4.10.0
-easyocr>=1.7.1
+paddlepaddle>=2.6.0
+paddleocr>=2.7.3
+shapely
+pyclipper
 ultralytics>=8.0.0
 
 # Data Validation
