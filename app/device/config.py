@@ -22,6 +22,7 @@ API_UPDATE_EXIT = f"{API_BASE_URL}/api/update-exit"
 API_UPDATE_DETAILS = f"{API_BASE_URL}/api/update-details"
 API_GET_VEHICLES = f"{API_BASE_URL}/api/vehicles"
 API_FORM_URL = f"{API_BASE_URL}/api/form"
+API_KIOSK_URL = f"{API_BASE_URL}/api/kiosk"  # Phase 5: Kiosk UI
 
 # File Paths
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")

@@ -1,7 +1,7 @@
 """
-Local ANPR Module (YOLOv8 + Enhanced EasyOCR)
-Detects license plates using an industry-standard YOLO object detection model.
-Extracts text from the upscaled plate using EasyOCR.
+Local ANPR Module (YOLOv8 + EasyOCR)
+Uses the trained YOLOv8 model from codewithaarohi/ANPR repo (best.pt)
+Same approach: YOLO detect plate -> crop -> EasyOCR read text
 """
 import os
 import cv2
@@ -29,19 +29,52 @@ yolo_model_path = os.path.join(models_dir, "license_plate_detector.pt")
 plate_detector = None
 if YOLO and os.path.exists(yolo_model_path):
     plate_detector = YOLO(yolo_model_path)
-    print("[SUCCESS] YOLOv8 Plate Detector Loaded!")
+    print("[SUCCESS] YOLOv8 Plate Detector Loaded (best.pt from ANPR repo)!")
 else:
     print(f"[WARNING] YOLO model not ready.")
 
+
+# Common OCR confusions between letters and numbers
+NUM_TO_LETTER = {'0': 'O', '1': 'I', '2': 'Z', '5': 'S', '8': 'B'}
+LETTER_TO_NUM = {'O': '0', 'I': '1', 'Z': '2', 'S': '5', 'B': '8', 'D': '0', 'Q': '0', 'G': '6'}
+
+
 def validate_and_clean_plate(raw_text: str) -> Optional[str]:
     cleaned = re.sub(r'[^A-Z0-9]', '', raw_text.upper())
-    # Basic indian format: 2 letters, 2 numbers, 1-2 letters, 4 numbers = ~8-10 chars
-    # However, sometimes parts are missing. Let's strictly accept 7 to 11 chars
+    # Basic cleanup: if starts with number that looks like letter, fix it
+    if len(cleaned) > 2 and cleaned[0].isdigit():
+        mapping = {'0': 'O', '1': 'I', '2': 'Z', '5': 'S', '8': 'B'}
+        if cleaned[0] in mapping:
+            cleaned = mapping[cleaned[0]] + cleaned[1:]
+            
     if 7 <= len(cleaned) <= 11:
-        # NUMBER PLATE MUST START WITH 2 ALPHABETS (e.g. MH, GJ, DL)
         if cleaned[:2].isalpha():
             return cleaned
     return None
+
+def perform_ocr_on_image(img, coordinates):
+    """Same OCR approach but returning confidence to trigger fallback if needed"""
+    x, y, w, h = map(int, coordinates)
+    cropped_img = img[y:h, x:w]
+    
+    # 1. Resize Crop (2x) for EasyOCR
+    cropped_img = cv2.resize(cropped_img, None, fx=2, fy=2, interpolation=cv2.INTER_LANCZOS4)
+    # 2. Convert to Grayscale
+    gray_img = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2GRAY)
+    # 3. Apply CLAHE contrast
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    contrast_img = clahe.apply(gray_img)
+
+    results = reader.readtext(contrast_img)
+    
+    text = ""
+    conf = 0.0
+    for res in results:
+        if len(results) == 1 or (len(res[1]) > 6 and res[2] > 0.2):
+            text = res[1]
+            conf = res[2]
+            
+    return str(text), conf
 
 def detect_plate_from_image(image_path: str) -> Optional[str]:
     if not plate_detector:
@@ -54,55 +87,32 @@ def detect_plate_from_image(image_path: str) -> Optional[str]:
         
         if len(box_data) == 0:
             return None
-            
+        
+        # Get best detection
         x1, y1, x2, y2 = map(int, box_data[0].xyxy[0])
         conf = float(box_data[0].conf[0])
-        print(f"[SUCCESS-LOCAL] YOLO exactly cropped Plate Region (Confidence: {conf:.2f})")
+        print(f"[SUCCESS-LOCAL] YOLO Plate Detected (Confidence: {conf:.2f})")
         
         img = cv2.imread(image_path)
         if img is None:
             return None
-            
-        plate_crop = img[y1:y2, x1:x2]
         
-        # 1. Resize Crop (2x) for EasyOCR (3x might be too large and blur edges)
-        plate_crop = cv2.resize(plate_crop, None, fx=2, fy=2, interpolation=cv2.INTER_LANCZOS4)
+        text_ocr, ocr_conf = perform_ocr_on_image(img, [x1, y1, x2, y2])
         
-        # 2. Convert to Grayscale
-        gray_crop = cv2.cvtColor(plate_crop, cv2.COLOR_BGR2GRAY)
-        
-        # 3. Apply gentle Contrast Limited Adaptive Histogram Equalization (CLAHE) instead of harsh OTSU threshold
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        contrast_crop = clahe.apply(gray_crop)
-        
-        print("[PROCESSING] EasyOCR extracting text...")
-        ocr_results = reader.readtext(
-            contrast_crop, 
-            allowlist='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-            paragraph=False
-        )
-        
-        if not ocr_results:
-            print("[ERROR] EasyOCR returned NOTHING. Image might be too blurry or dark.")
-            return None
-            
-        # Combine text pieces
-        full_text = "".join([piece[1] for piece in ocr_results])
-        total_conf = sum([piece[2] for piece in ocr_results])
-            
-        avg_conf = total_conf / len(ocr_results) if ocr_results else 0
-        cleaned_plate = validate_and_clean_plate(full_text)
-        
-        if cleaned_plate:
-            print(f"[SUCCESS-LOCAL] OCR Extracted: {cleaned_plate} (Confidence: {avg_conf:.2f})")
-            # If the EasyOCR isn't at least 45% sure, kick it to the Cloud API
-            # EasyOCR confidence scores are naturally lower than Cloud API, so 0.45 is a balanced threshold
-            if avg_conf < 0.45:
-                print(f"[WARNING] Local confidence ({avg_conf:.2f}) is too low, using Cloud API Fallback...")
+        if text_ocr:
+            cleaned_plate = validate_and_clean_plate(text_ocr)
+            if cleaned_plate:
+                print(f"[SUCCESS-LOCAL] OCR Extracted: {cleaned_plate} (Confidence: {ocr_conf:.2f})")
+                # Fallback to Cloud API if confidence is too low
+                if ocr_conf < 0.45:
+                    print(f"[WARNING] Local confidence ({ocr_conf:.2f}) is too low. Sending to Cloud API fallback...")
+                    return None
+                return cleaned_plate
+            else:
+                print(f"[ERROR] Found text '{text_ocr}' but failed Indian plate format check.")
                 return None
-            return cleaned_plate
-            
-        print(f"[ERROR] Found text '{full_text}' but it failed Indian License Plate Regex pattern.")
+        
+        print("[ERROR] EasyOCR returned NOTHING.")
         return None
         
     except Exception as e:

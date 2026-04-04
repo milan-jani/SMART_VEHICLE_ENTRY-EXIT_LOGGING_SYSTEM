@@ -2,13 +2,15 @@
 API Routes
 All FastAPI endpoints for vehicle logging system
 """
-from fastapi import APIRouter, HTTPException, Request, Form
+from fastapi import APIRouter, HTTPException, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import os
+import uuid
+import shutil
 
 from .db_sqlite import (
     create_visit,
@@ -18,7 +20,11 @@ from .db_sqlite import (
     get_all_visits,
     get_stats,
     is_regular_user,
-    mark_regular_user
+    get_regular_user,
+    mark_regular_user,
+    get_all_regular_users,
+    delete_regular_user,
+    update_kiosk_visit_details
 )
 
 router = APIRouter()
@@ -82,8 +88,19 @@ async def create_new_entry(entry: NewEntryRequest):
                 }
             }
         
-        # Check if regular user to set visitor type
-        visitor_type = "regular" if is_regular_user(entry.vehicle_no) else "visitor"
+        # Check if regular user (worker) to set visitor type
+        worker_info = get_regular_user(entry.vehicle_no)
+        
+        if worker_info:
+            visitor_type = "worker"
+            # Auto-fill name and phone
+            entry.name = entry.name or worker_info.get("user_name", "")
+            entry.phone = entry.phone or worker_info.get("phone", "")
+            entry.purpose = entry.purpose or "Worker Entry"
+            response_status = "worker_entry"
+        else:
+            visitor_type = "visitor"
+            response_status = "new"
         
         # Create new entry
         create_visit(
@@ -92,7 +109,7 @@ async def create_new_entry(entry: NewEntryRequest):
             visitor_type=visitor_type
         )
         
-        # We optionally update the details immediately if passed in the new entry
+        # We update the details immediately 
         if entry.name or entry.phone or entry.purpose:
             update_latest_visit_details_by_vehicle(
                 entry.vehicle_no,
@@ -102,11 +119,12 @@ async def create_new_entry(entry: NewEntryRequest):
             )
         
         return {
-            "status": "success",
+            "status": response_status,
             "message": f"New entry created for vehicle {entry.vehicle_no}. Type: {visitor_type}",
             "vehicle_no": entry.vehicle_no,
             "in_time": in_time,
-            "visitor_type": visitor_type
+            "visitor_type": visitor_type,
+            "name": entry.name
         }
     
     except Exception as e:
@@ -271,12 +289,61 @@ async def mark_vehicle_as_regular(info: MarkRegularRequest):
     Whitelists a regular vehicle in the database
     """
     try:
-        success = mark_regular_user(info.vehicle_no, info.name, info.phone)
+        success = mark_regular_user(info.vehicle_no, info.name, info.phone, "")
         if success:
             return {"status": "success", "message": f"{info.vehicle_no} marked as Regular User"}
         raise HTTPException(status_code=500, detail="Failed to mark as regular")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
+
+@router.get("/workers")
+async def get_workers():
+    """
+    Get all regular users (workers)
+    """
+    try:
+        workers = get_all_regular_users()
+        return {
+            "status": "success",
+            "count": len(workers),
+            "workers": workers
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching workers: {str(e)}")
+
+class AddWorkerRequest(BaseModel):
+    vehicle_no: str
+    name: str
+    phone: str
+    department: Optional[str] = ""
+
+@router.post("/add-worker")
+async def add_worker(worker: AddWorkerRequest):
+    """
+    Add a new worker to the database
+    """
+    try:
+        success = mark_regular_user(worker.vehicle_no, worker.name, worker.phone, worker.department)
+        if success:
+            return {"status": "success", "message": f"Worker {worker.name} added successfully"}
+        raise HTTPException(status_code=500, detail="Failed to add worker")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding worker: {str(e)}")
+
+@router.delete("/delete-worker/{vehicle_no}")
+async def delete_worker(vehicle_no: str):
+    """
+    Remove a worker from the database
+    """
+    try:
+        success = delete_regular_user(vehicle_no)
+        if success:
+            return {"status": "success", "message": f"Worker {vehicle_no} deleted successfully"}
+        raise HTTPException(status_code=404, detail=f"Worker with plate {vehicle_no} not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting worker: {str(e)}")
 
 
 # Web Form Routes (served via FastAPI)
@@ -337,3 +404,75 @@ async def dashboard_page(request: Request):
         "dashboard.html",
         {"request": request}
     )
+
+
+# Phase 5: Kiosk Form Routes
+
+@router.get("/kiosk", response_class=HTMLResponse)
+async def kiosk_form_page(request: Request, plate: str = ""):
+    """
+    Serve the kiosk visitor entry form
+    """
+    return templates.TemplateResponse(
+        "kiosk.html",
+        {"request": request, "plate": plate}
+    )
+
+@router.post("/kiosk")
+async def submit_kiosk_form(request: Request):
+    """
+    Handle visitor form submission from kiosk
+    Receives JSON payload with all required fields
+    """
+    try:
+        data = await request.json()
+        vehicle_no = data.get('vehicle_no')
+        
+        if not vehicle_no:
+            raise HTTPException(status_code=400, detail="Vehicle number is required")
+            
+        success = update_kiosk_visit_details(vehicle_no, data)
+        
+        if success:
+            return {"status": "success", "message": "Visitor details logged successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="No open visit found for this vehicle")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing kiosk submission: {str(e)}")
+
+@router.post("/upload-id-card")
+async def upload_id_card(file: UploadFile = File(...)):
+    """
+    Handle ID card image uploads from the kiosk camera or file picker
+    """
+    try:
+        # Base directory for uploads
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        upload_dir = os.path.join(base_dir, "data", "id_cards")
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Generate unique filename
+        file_ext = os.path.splitext(file.filename)[1]
+        if not file_ext:
+            file_ext = '.jpg'
+            
+        filename = f"{uuid.uuid4().hex}{file_ext}"
+        file_path = os.path.join(upload_dir, filename)
+        
+        # Write file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Return relative path for saving to database
+        rel_path = os.path.join("data", "id_cards", filename).replace("\\", "/")
+        
+        return {
+            "status": "success", 
+            "message": "File uploaded successfully",
+            "file_path": rel_path
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")

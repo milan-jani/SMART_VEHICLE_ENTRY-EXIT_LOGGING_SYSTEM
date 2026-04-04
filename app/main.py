@@ -19,6 +19,11 @@ app = FastAPI(
 static_path = os.path.join(os.path.dirname(__file__), "web", "static")
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
+# Mount data directory for images (vehicle images, ID cards)
+data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+if os.path.exists(data_path):
+    app.mount("/data", StaticFiles(directory=data_path), name="data")
+
 # Setup templates
 templates_path = os.path.join(os.path.dirname(__file__), "web", "templates")
 templates = Jinja2Templates(directory=templates_path)

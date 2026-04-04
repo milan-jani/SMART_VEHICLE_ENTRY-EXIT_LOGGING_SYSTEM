@@ -16,6 +16,7 @@ from app.device.config import (
     API_NEW_ENTRY,
     API_UPDATE_EXIT,
     API_FORM_URL,
+    API_KIOSK_URL,
     AUTO_OPEN_FORM
 )
 
@@ -128,7 +129,7 @@ def open_visitor_form(vehicle_no: str) -> None:
         vehicle_no: Vehicle number to pre-fill in form
     """
     try:
-        form_url = f"{API_FORM_URL}?plate={vehicle_no}"
+        form_url = f"{API_KIOSK_URL}?plate={vehicle_no}"
         print(f"[BROWSER] Opening visitor form: {form_url}")
         webbrowser.open(form_url)
     except Exception as e:
@@ -153,9 +154,15 @@ def process_vehicle(plate_number: str, image_path: str) -> None:
         # API error - could not process
         print("[WARNING] Could not process vehicle. Check API logs.")
     
+    elif entry_result['status'] == 'worker_entry':
+        # Authorized worker/regular user - log and skip form
+        name = entry_result.get('name', 'Unknown')
+        print(f"[NEW ENTRY] Worker entry created for: {name}")
+        print(f"[LOGGED] Vehicle {plate_number} marked as INSIDE. Form skipped.")
+        
     elif entry_result['status'] == 'new':
-        # New vehicle entry created - open form for visitor details
-        print(f"[NEW ENTRY] New vehicle entry created!")
+        # New visitor vehicle entry created - open form for visitor details
+        print(f"[NEW ENTRY] New visitor entry created!")
         print(f"[LOGGED] Vehicle {plate_number} marked as INSIDE")
         
         if AUTO_OPEN_FORM:
@@ -163,7 +170,7 @@ def process_vehicle(plate_number: str, image_path: str) -> None:
             open_visitor_form(plate_number)
             print("[INFO] Please fill out the visitor form in your browser.")
         else:
-            print(f"[INFO] Visit {API_FORM_URL}?plate={plate_number} to fill visitor details")
+            print(f"[INFO] Visit {API_KIOSK_URL}?plate={plate_number} to fill visitor details")
     
     elif entry_result['status'] == 'existing':
         # Vehicle already has an open entry (already inside) - mark as exit
