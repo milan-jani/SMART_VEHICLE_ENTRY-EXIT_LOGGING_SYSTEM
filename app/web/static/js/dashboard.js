@@ -64,6 +64,9 @@ async function loadDashboard() {
             updateVehiclesTable(allVehicles);
         }
         
+        // Load workers data as well
+        await loadWorkers();
+        
         // Update last updated timestamp
         document.getElementById('last-updated').textContent = new Date().toLocaleString('en-IN');
         
@@ -202,11 +205,16 @@ function updateVehiclesTable(vehicles) {
         
         const statusColor = vehicle.out_time ? '#f59e0b' : '#10b981';
         
+        const visitorType = (vehicle.visitor_type === 'worker' || vehicle.visitor_type === 'regular') ? 
+            '<span class="status-badge" style="background:#dbeafe; color:#1e40af;"><i class="fas fa-id-badge"></i> Worker</span>' : 
+            '<span class="status-badge" style="background:#f1f5f9; color:#475569;"><i class="fas fa-user-clock"></i> Visitor</span>';
+        
         const row = `
             <tr style="animation: slideInUp 0.6s ease ${index * 0.08}s backwards;">
                 <td>
                     <strong style="font-size: 0.95rem; letter-spacing: 0.3px;">${escapeHtml(vehicle.vehicle_no)}</strong>
                 </td>
+                <td>${visitorType}</td>
                 <td>
                     ${escapeHtml(vehicle.visitor_name) || '-'}
                 </td>
@@ -370,6 +378,167 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Tab Navigation Logic
+ */
+function switchTab(tabId) {
+    // Update buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Update contents
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Set active
+    document.getElementById(tabId).classList.add('active');
+    
+    if (tabId === 'vehicles-tab') {
+        document.getElementById('btn-vehicles-tab').classList.add('active');
+    } else if (tabId === 'workers-tab') {
+        document.getElementById('btn-workers-tab').classList.add('active');
+    }
+}
+
+/**
+ * Worker Management Logic
+ */
+async function loadWorkers() {
+    try {
+        const response = await fetch(`${API_BASE}/workers`);
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            updateWorkersTable(data.workers);
+        }
+    } catch (e) {
+        console.error('Error loading workers:', e);
+    }
+}
+
+function updateWorkersTable(workers) {
+    const tbody = document.getElementById('workers-tbody');
+    
+    if (workers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading"><i class="fas fa-users" style="font-size: 2rem; margin-bottom: 10px;"></i><div>No workers found. Add some!</div></td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = workers.map((worker, index) => {
+        return `
+            <tr style="animation: slideInUp 0.6s ease ${index * 0.05}s backwards;">
+                <td>
+                    <strong style="font-size: 0.95rem;">${escapeHtml(worker.vehicle_no)}</strong>
+                </td>
+                <td>${escapeHtml(worker.user_name) || '-'}</td>
+                <td>${escapeHtml(worker.phone) || '-'}</td>
+                <td>${escapeHtml(worker.flat_no) || '-'}</td>
+                <td>${formatDateTime(worker.created_at)}</td>
+                <td>
+                    <button class="btn-danger" onclick="deleteWorker('${escapeHtml(worker.vehicle_no)}')">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function openAddWorkerModal() {
+    document.getElementById('add-worker-modal').classList.add('show');
+}
+
+function closeAddWorkerModal() {
+    document.getElementById('add-worker-modal').classList.remove('show');
+    // Clear inputs
+    document.getElementById('new-worker-plate').value = '';
+    document.getElementById('new-worker-name').value = '';
+    document.getElementById('new-worker-phone').value = '';
+    document.getElementById('new-worker-dept').value = '';
+    document.getElementById('new-worker-idtype').value = '';
+    document.getElementById('new-worker-idno').value = '';
+    document.getElementById('new-worker-dob').value = '';
+    document.getElementById('new-worker-address-street').value = '';
+    document.getElementById('new-worker-address-city').value = '';
+    document.getElementById('new-worker-address-state').value = '';
+}
+
+async function submitNewWorker() {
+    const plate = document.getElementById('new-worker-plate').value.trim().toUpperCase();
+    const name = document.getElementById('new-worker-name').value.trim();
+    const phone = document.getElementById('new-worker-phone').value.trim();
+    const dept = document.getElementById('new-worker-dept').value.trim();
+    const idType = document.getElementById('new-worker-idtype').value;
+    const idNo = document.getElementById('new-worker-idno').value.trim();
+    const dob = document.getElementById('new-worker-dob').value;
+    const addrStreet = document.getElementById('new-worker-address-street').value.trim();
+    const addrCity = document.getElementById('new-worker-address-city').value.trim();
+    const addrState = document.getElementById('new-worker-address-state').value.trim();
+    
+    if (!plate || !name) {
+        alert("Vehicle Number and Full Name are required.");
+        return;
+    }
+    
+    const btn = document.getElementById('btn-save-worker');
+    const originalText = btn.innerText;
+    btn.innerText = 'Saving...';
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch(`${API_BASE}/add-worker`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                vehicle_no: plate,
+                name: name,
+                phone: phone,
+                department: dept,
+                id_type: idType,
+                id_number: idNo,
+                dob: dob,
+                address_street: addrStreet,
+                address_city: addrCity,
+                address_state: addrState
+            })
+        });
+        
+        const data = await res.json();
+        if (data.status === 'success') {
+            closeAddWorkerModal();
+            loadWorkers(); // reload workers table
+        } else {
+            alert("Error: " + (data.detail || data.message || "Failed to add worker."));
+        }
+    } catch (e) {
+        console.error("Submit worker error", e);
+        alert("Failed to reach server.");
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function deleteWorker(plate) {
+    if (!confirm(`Are you sure you want to remove ${plate} from the Authorized Workers list?`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API_BASE}/delete-worker/${encodeURIComponent(plate)}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            loadWorkers();
+        } else {
+            alert("Error: " + (data.detail || "Failed to delete worker."));
+        }
+    } catch (e) {
+        console.error("Delete worker error", e);
+        alert("Failed to reach server.");
+    }
 }
 
 /**

@@ -316,6 +316,14 @@ class AddWorkerRequest(BaseModel):
     name: str
     phone: str
     department: Optional[str] = ""
+    id_type: Optional[str] = ""
+    id_number: Optional[str] = ""
+    id_card_front_path: Optional[str] = ""
+    id_card_back_path: Optional[str] = ""
+    dob: Optional[str] = ""
+    address_street: Optional[str] = ""
+    address_city: Optional[str] = ""
+    address_state: Optional[str] = ""
 
 @router.post("/add-worker")
 async def add_worker(worker: AddWorkerRequest):
@@ -323,7 +331,20 @@ async def add_worker(worker: AddWorkerRequest):
     Add a new worker to the database
     """
     try:
-        success = mark_regular_user(worker.vehicle_no, worker.name, worker.phone, worker.department)
+        success = mark_regular_user(
+            vehicle_no=worker.vehicle_no, 
+            name=worker.name, 
+            phone=worker.phone, 
+            flat_no=worker.department,
+            id_type=worker.id_type,
+            id_number=worker.id_number,
+            id_card_front_path=worker.id_card_front_path,
+            id_card_back_path=worker.id_card_back_path,
+            dob=worker.dob,
+            address_street=worker.address_street,
+            address_city=worker.address_city,
+            address_state=worker.address_state
+        )
         if success:
             return {"status": "success", "message": f"Worker {worker.name} added successfully"}
         raise HTTPException(status_code=500, detail="Failed to add worker")

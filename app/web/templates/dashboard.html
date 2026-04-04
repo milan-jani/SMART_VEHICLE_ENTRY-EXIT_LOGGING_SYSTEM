@@ -646,9 +646,140 @@
             th:nth-child(2) { min-width: 120px; }
             th:nth-child(3) { min-width: 110px; }
             th:nth-child(4) { min-width: 120px; }
-            th:nth-child(5) { min-width: 160px; }
-            th:nth-child(6) { min-width: 160px; }
-            th:nth-child(7) { min-width: 100px; }
+            th:nth-child(7) { min-width: 100px; text-align: center; }
+            th:nth-child(8) { min-width: 100px; text-align: center; }
+        }
+
+        /* Tabs and Modal Styles */
+        .tabs-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            font-weight: 600;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: rgba(255, 255, 255, 0.7);
+            box-shadow: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            border-bottom: 4px solid transparent;
+            margin-bottom: -2px; /* Pull down to overlap the container border */
+        }
+
+        .tab-btn.active {
+            background: transparent;
+            color: white;
+            border-bottom: 4px solid var(--success-color); /* Bright green underline */
+            box-shadow: none;
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: transparent;
+            color: white;
+            transform: translateY(0);
+            border-bottom: 4px solid rgba(16, 185, 129, 0.5); /* Faint green on hover */
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.show .modal-content {
+            transform: translateY(0);
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 1rem;
+            outline: none;
+            background: var(--light-bg);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.15);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: scale(1.05);
         }
     </style>
 </head>
@@ -660,87 +791,135 @@
             <h1>Smart Vehicle Entry-Exit System</h1>
         </div>
 
-        <!-- Stats Cards -->
-        <div class="stats-container">
-            <div class="stats-card-wrapper">
-                <div class="stat-icon-wrapper">
-                    <i class="fas fa-clock"></i>
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab('vehicles-tab')" id="btn-vehicles-tab">
+                <i class="fas fa-car-side"></i> Vehicle Log
+            </button>
+            <button class="tab-btn" onclick="switchTab('workers-tab')" id="btn-workers-tab">
+                <i class="fas fa-id-badge"></i> Worker Management
+            </button>
+        </div>
+
+        <!-- Vehicle Log Tab -->
+        <div id="vehicles-tab" class="tab-content active">
+            <!-- Stats Cards -->
+            <div class="stats-container">
+                <div class="stats-card-wrapper">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-number" id="total-entries">-</div>
+                    <div class="stat-label">Total Entries</div>
                 </div>
-                <div class="stat-number" id="total-entries">-</div>
-                <div class="stat-label">Total Entries</div>
+                <div class="stats-card-wrapper">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-car-side"></i>
+                    </div>
+                    <div class="stat-number" id="open-entries">-</div>
+                    <div class="stat-label">Currently Inside</div>
+                </div>
+                <div class="stats-card-wrapper">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-number" id="closed-entries">-</div>
+                    <div class="stat-label">Exited</div>
+                </div>
+                <div class="stats-card-wrapper">
+                    <div class="stat-icon-wrapper">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-number" id="unique-vehicles">-</div>
+                    <div class="stat-label">Unique Vehicles</div>
+                </div>
             </div>
-            <div class="stats-card-wrapper">
-                <div class="stat-icon-wrapper">
-                    <i class="fas fa-car-side"></i>
+
+            <!-- Overview Section with Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>Overview of all Vehicle Entries</h3>
+                    <button class="export-btn" onclick="exportToCSV()">
+                        <i class="fas fa-download"></i> Export CSV
+                    </button>
                 </div>
-                <div class="stat-number" id="open-entries">-</div>
-                <div class="stat-label">Currently Inside</div>
-            </div>
-            <div class="stats-card-wrapper">
-                <div class="stat-icon-wrapper">
-                    <i class="fas fa-check-circle"></i>
+                
+                <!-- Search and Filter Bar -->
+                <div style="display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap; align-items: stretch;">
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        placeholder="Search by vehicle number, name, or phone..."
+                        oninput="filterTable()"
+                        style="flex: 1; min-width: 300px; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; outline: none; transition: all 0.2s;"
+                        onfocus="this.style.borderColor='#0d9488'; this.style.boxShadow='0 0 0 3px rgba(13, 148, 136, 0.1)'"
+                        onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'"
+                    >
+                    <select id="status-filter" onchange="filterTable()" style="padding: 12px 40px 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; min-width: 180px; background: white; cursor: pointer; font-weight: 600; appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 12 12%27%3e%3cpath fill=%27%23334155%27 d=%27M6 9L1 4h10z%27/%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 12px center;">
+                        <option value="all">All Status</option>
+                        <option value="inside">Currently Inside</option>
+                        <option value="exited">Exited</option>
+                    </select>
                 </div>
-                <div class="stat-number" id="closed-entries">-</div>
-                <div class="stat-label">Exited</div>
-            </div>
-            <div class="stats-card-wrapper">
-                <div class="stat-icon-wrapper">
-                    <i class="fas fa-hashtag"></i>
+
+                <div class="table-wrapper">
+                    <table id="vehicles-table">
+                        <thead>
+                            <tr>
+                                <th>Vehicle No.</th>
+                                <th>Type</th>
+                                <th>Visitor Name</th>
+                                <th>Phone</th>
+                                <th>Purpose</th>
+                                <th>In Time</th>
+                                <th>Out Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vehicles-tbody">
+                            <tr>
+                                <td colspan="8" class="loading">
+                                    <i class="fas fa-spinner"></i>
+                                    <div>Loading data...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="stat-number" id="unique-vehicles">-</div>
-                <div class="stat-label">Unique Vehicles</div>
             </div>
         </div>
 
-        <!-- Overview Section with Table -->
-        <div class="table-container">
-            <div class="table-header">
-                <h3>Overview of all Vehicle Entries</h3>
-                <button class="export-btn" onclick="exportToCSV()">
-                    <i class="fas fa-download"></i> Export CSV
-                </button>
-            </div>
-            
-            <!-- Search and Filter Bar -->
-            <div style="display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap; align-items: stretch;">
-                <input 
-                    type="text" 
-                    id="search-input" 
-                    placeholder="Search by vehicle number, name, or phone..."
-                    oninput="filterTable()"
-                    style="flex: 1; min-width: 300px; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; outline: none; transition: all 0.2s;"
-                    onfocus="this.style.borderColor='#0d9488'; this.style.boxShadow='0 0 0 3px rgba(13, 148, 136, 0.1)'"
-                    onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'"
-                >
-                <select id="status-filter" onchange="filterTable()" style="padding: 12px 40px 12px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; min-width: 180px; background: white; cursor: pointer; font-weight: 600; appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 12 12%27%3e%3cpath fill=%27%23334155%27 d=%27M6 9L1 4h10z%27/%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 12px center;">
-                    <option value="all">All Status</option>
-                    <option value="inside">Currently Inside</option>
-                    <option value="exited">Exited</option>
-                </select>
-            </div>
-
-            <div class="table-wrapper">
-                <table id="vehicles-table">
-                    <thead>
-                        <tr>
-                            <th>Vehicle No.</th>
-                            <th>Visitor Name</th>
-                            <th>Phone</th>
-                            <th>Purpose</th>
-                            <th>In Time</th>
-                            <th>Out Time</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="vehicles-tbody">
-                        <tr>
-                            <td colspan="7" class="loading">
-                                <i class="fas fa-spinner"></i>
-                                <div>Loading data...</div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+        <!-- Worker Management Tab -->
+        <div id="workers-tab" class="tab-content">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>Manage Authorized Workers & Staff</h3>
+                    <button class="export-btn" onclick="openAddWorkerModal()" style="background: var(--primary-color);">
+                        <i class="fas fa-user-plus"></i> Add New Worker
+                    </button>
+                </div>
+                
+                <div class="table-wrapper">
+                    <table id="workers-table">
+                        <thead>
+                            <tr>
+                                <th>Vehicle No.</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Department / Flat</th>
+                                <th>Added On</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="workers-tbody">
+                            <tr>
+                                <td colspan="6" class="loading">
+                                    <i class="fas fa-spinner"></i>
+                                    <div>Loading workers...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         
@@ -759,12 +938,82 @@
         </div>
     </div>
     
-    <script src="/static/js/dashboard.js?v=6.0"></script>
+    <script src="/static/js/dashboard.js?v=7.0"></script>
     <script>
         // Load dashboard on page load
         window.addEventListener('DOMContentLoaded', loadDashboard);
     </script>
+    
+    <!-- Add Worker Modal -->
+    <div id="add-worker-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 25px; color: var(--text-primary); font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-user-plus" style="color: var(--primary-color);"></i> Add New Worker
+            </h3>
+            
+            <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label>Vehicle Number (Plate)*</label>
+                    <input type="text" id="new-worker-plate" placeholder="e.g. MH01AB1234" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Full Name*</label>
+                    <input type="text" id="new-worker-name" placeholder="e.g. Ramesh Security" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" id="new-worker-phone" placeholder="e.g. 9876543210" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Department / Role</label>
+                    <input type="text" id="new-worker-dept" placeholder="e.g. Security, Maintenance, Staff" autocomplete="off">
+                </div>
+                
+                <h4 style="margin: 15px 0 10px; color: var(--text-secondary); font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">ID & Personal Details</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>ID Type</label>
+                        <select id="new-worker-idtype" style="width: 100%; padding: 12px 15px; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; color: var(--text-primary); background: var(--card-bg); transition: all 0.3s ease; box-sizing: border-box;">
+                            <option value="">None</option>
+                            <option value="aadhaar">Aadhaar Card</option>
+                            <option value="pan">PAN Card</option>
+                            <option value="dl">Driving License</option>
+                            <option value="voter">Voter ID</option>
+                            <option value="other">Other ID</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ID Number</label>
+                        <input type="text" id="new-worker-idno" placeholder="e.g. XXXX XXXX XXXX" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Date of Birth</label>
+                    <input type="date" id="new-worker-dob">
+                </div>
+
+                <h4 style="margin: 15px 0 10px; color: var(--text-secondary); font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Residential Address</h4>
+                <div class="form-group">
+                    <label>Street / Area Address</label>
+                    <input type="text" id="new-worker-address-street" placeholder="Street, Sector, or Local Area..." autocomplete="off">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>City</label>
+                        <input type="text" id="new-worker-address-city" placeholder="E.g., Bangalore" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>State</label>
+                        <input type="text" id="new-worker-address-state" placeholder="E.g., Karnataka" autocomplete="off">
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                <button onclick="closeAddWorkerModal()" style="padding: 12px 20px; border: none; border-radius: 10px; background: transparent; color: var(--text-secondary); cursor: pointer; font-weight: 600; transition: all 0.2s; border: 2px solid var(--border-color);">Cancel</button>
+                <button onclick="submitNewWorker()" id="btn-save-worker" style="padding: 12px 24px; border: none; border-radius: 10px; background: var(--primary-color); color: white; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3); transition: all 0.2s;">Save Worker</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
-
-  {# \run_all.bat. to run project #}

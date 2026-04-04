@@ -50,9 +50,63 @@ def init_db():
         user_name TEXT DEFAULT '',
         flat_no TEXT DEFAULT '',
         phone TEXT DEFAULT '',
+        id_type TEXT DEFAULT '',
+        id_number TEXT DEFAULT '',
+        id_card_front_path TEXT DEFAULT '',
+        id_card_back_path TEXT DEFAULT '',
+        dob TEXT DEFAULT '',
+        address_street TEXT DEFAULT '',
+        address_city TEXT DEFAULT '',
+        address_state TEXT DEFAULT '',
         created_at TEXT NOT NULL
     )
     ''')
+    
+    conn.commit()
+    
+    # --- Phase 5: Kiosk fields migration ---
+    # Safely add new columns if they don't exist (ALTER TABLE won't fail on existing)
+    new_columns = [
+        ("id_type", "TEXT DEFAULT ''"),
+        ("id_number", "TEXT DEFAULT ''"),
+        ("id_card_front_path", "TEXT DEFAULT ''"),
+        ("id_card_back_path", "TEXT DEFAULT ''"),
+        ("address_street", "TEXT DEFAULT ''"),
+        ("address_city", "TEXT DEFAULT ''"),
+        ("address_state", "TEXT DEFAULT ''"),
+        ("dob", "TEXT DEFAULT ''"),
+        ("person_to_meet", "TEXT DEFAULT ''"),
+        ("flat_no", "TEXT DEFAULT ''"),
+        ("num_persons", "INTEGER DEFAULT 1"),
+        ("vehicle_type", "TEXT DEFAULT ''"),
+        ("company", "TEXT DEFAULT ''"),
+        ("expected_duration", "TEXT DEFAULT ''"),
+        ("remarks", "TEXT DEFAULT ''"),
+    ]
+    
+    for col_name, col_def in new_columns:
+        try:
+            cursor.execute(f'ALTER TABLE visits ADD COLUMN {col_name} {col_def}')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+            
+    # Safely add new columns to regular_users if they don't exist
+    regular_new_columns = [
+        ("id_type", "TEXT DEFAULT ''"),
+        ("id_number", "TEXT DEFAULT ''"),
+        ("id_card_front_path", "TEXT DEFAULT ''"),
+        ("id_card_back_path", "TEXT DEFAULT ''"),
+        ("dob", "TEXT DEFAULT ''"),
+        ("address_street", "TEXT DEFAULT ''"),
+        ("address_city", "TEXT DEFAULT ''"),
+        ("address_state", "TEXT DEFAULT ''")
+    ]
+    
+    for col_name, col_def in regular_new_columns:
+        try:
+            cursor.execute(f'ALTER TABLE regular_users ADD COLUMN {col_name} {col_def}')
+        except sqlite3.OperationalError:
+            pass # Column already exists
     
     conn.commit()
     conn.close()
@@ -183,16 +237,33 @@ def find_open_visit_by_vehicle(vehicle_no: str) -> Optional[Dict[str, Any]]:
 
 def is_regular_user(vehicle_no: str) -> bool:
     """Checks if a vehicle is in the regular users whitelist."""
+    return get_regular_user(vehicle_no) is not None
+
+def get_regular_user(vehicle_no: str) -> Optional[Dict[str, Any]]:
+    """Retrieves regular user details if they exist in the whitelist."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('SELECT 1 FROM regular_users WHERE vehicle_no = ?', (vehicle_no,))
-    result = cursor.fetchone()
+    cursor.execute('SELECT * FROM regular_users WHERE vehicle_no = ?', (vehicle_no,))
+    row = cursor.fetchone()
     conn.close()
     
-    return result is not None
+    return dict(row) if row else None
 
-def mark_regular_user(vehicle_no: str, name: str = "", phone: str = "", flat_no: str = "") -> bool:
+def mark_regular_user(
+        vehicle_no: str, 
+        name: str = "", 
+        phone: str = "", 
+        flat_no: str = "",
+        id_type: str = "",
+        id_number: str = "",
+        id_card_front_path: str = "",
+        id_card_back_path: str = "",
+        dob: str = "",
+        address_street: str = "",
+        address_city: str = "",
+        address_state: str = ""
+    ) -> bool:
     """Adds or updates a vehicle in the regular users whitelist."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -201,9 +272,17 @@ def mark_regular_user(vehicle_no: str, name: str = "", phone: str = "", flat_no:
     
     # Use REPLACE to update if vehicle_no already exists (since it's UNIQUE)
     cursor.execute('''
-        INSERT OR REPLACE INTO regular_users (vehicle_no, user_name, phone, flat_no, created_at)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (vehicle_no, name, phone, flat_no, created_at))
+        INSERT OR REPLACE INTO regular_users (
+            vehicle_no, user_name, phone, flat_no, 
+            id_type, id_number, id_card_front_path, id_card_back_path, 
+            dob, address_street, address_city, address_state, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        vehicle_no, name, phone, flat_no, 
+        id_type, id_number, id_card_front_path, id_card_back_path, 
+        dob, address_street, address_city, address_state, created_at
+    ))
     
     success = cursor.rowcount > 0
     conn.commit()
@@ -219,6 +298,18 @@ def get_all_regular_users() -> List[Dict[str, Any]]:
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+def delete_regular_user(vehicle_no: str) -> bool:
+    """Removes a vehicle from the regular users whitelist."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM regular_users WHERE vehicle_no = ?', (vehicle_no,))
+    
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
 
 # --- Dashboard & Statistics ---
 
@@ -259,6 +350,51 @@ def get_stats() -> Dict[str, Any]:
     
     conn.close()
     return stats
+
+# --- Phase 5: Kiosk-specific operations ---
+
+def update_kiosk_visit_details(vehicle_no: str, details: Dict[str, Any]) -> bool:
+    """Updates all kiosk visitor details for the latest open visit of a vehicle."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Build SET clause dynamically from provided details
+    allowed_fields = [
+        'visitor_name', 'phone', 'purpose', 'id_type', 'id_number',
+        'id_card_front_path', 'id_card_back_path', 'address_street',
+        'address_city', 'address_state', 'dob',
+        'person_to_meet', 'flat_no', 'num_persons', 'vehicle_type',
+        'company', 'expected_duration', 'remarks'
+    ]
+    
+    set_parts = []
+    values = []
+    for field in allowed_fields:
+        if field in details:
+            set_parts.append(f"{field} = ?")
+            values.append(details[field])
+    
+    if not set_parts:
+        conn.close()
+        return False
+    
+    set_clause = ", ".join(set_parts)
+    values.append(vehicle_no)
+    
+    cursor.execute(f'''
+        UPDATE visits
+        SET {set_clause}
+        WHERE id = (
+            SELECT id FROM visits 
+            WHERE vehicle_no = ? AND status = 'inside' 
+            ORDER BY in_time DESC LIMIT 1
+        )
+    ''', values)
+    
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
 
 # Initialize the DB schema when this module is imported
 init_db()

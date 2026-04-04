@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Entry Form - Smart Gate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/kiosk.css">
+</head>
+<body>
+
+    <div class="kiosk-container">
+        <!-- Main Form Card -->
+        <div class="form-card">
+            
+            <!-- Header Section -->
+            <div class="form-header">
+                <div class="header-icon">
+                    <i class="fas fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h1>Visitor Entry Form</h1>
+                    <p>SMART GATE SECURITY SYSTEM</p>
+                </div>
+            </div>
+
+            <!-- Pre-filled vehicle number header banner -->
+            <div class="vehicle-banner">
+                <div class="banner-content">
+                    <i class="fas fa-car-side"></i>
+                    <div class="banner-text">
+                        <span class="banner-label">Vehicle Detected</span>
+                        <span class="banner-value" id="display-vehicle-no">{{ plate }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <form id="kiosk-form">
+                <!-- Hidden input for vehicle number -->
+                <input type="hidden" name="vehicle_no" id="vehicle_no" value="{{ plate }}">
+
+                <!-- ================== SECTION 1: ID VERIFICATION (Top for Auto-fill) ================== -->
+                <div class="form-section">
+                    <h2 class="section-title">ID Verification</h2>
+                    
+                    <div class="form-row two-cols">
+                        <div class="input-group">
+                            <label for="id_type">ID Type <span class="required">*</span></label>
+                            <div class="input-wrapper select-wrapper">
+                                <i class="fas fa-id-card input-icon"></i>
+                                <select id="id_type" name="id_type" required>
+                                    <option value="" disabled selected>Select ID Type...</option>
+                                    <option value="aadhaar">Aadhaar Card</option>
+                                    <option value="pan">PAN Card</option>
+                                    <option value="dl">Driving License</option>
+                                    <option value="voter">Voter ID</option>
+                                    <option value="passport">Passport</option>
+                                    <option value="other">Other ID</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="id_number">ID Number <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-hashtag input-icon"></i>
+                                <input type="text" id="id_number" name="id_number" placeholder="Enter ID number" required>
+                            </div>
+                            <span class="validation-msg" id="id_validation_msg"></span>
+                        </div>
+                    </div>
+
+                    <!-- Side-by-Side Dual Image Capture -->
+                    <div class="id-capture-container">
+                        <!-- Front Side -->
+                        <div class="capture-box" id="capture-front-box">
+                            <div class="capture-header">
+                                <span>Front Side <span class="required">*</span></span>
+                            </div>
+                            <div class="capture-body" id="front-preview-container">
+                                <i class="fas fa-camera retro-cam"></i>
+                                <p>Essential for name & photo</p>
+                            </div>
+                            <img id="front-preview-img" class="preview-img hidden" alt="Front ID Preview">
+                            <input type="hidden" id="id_card_front_path" name="id_card_front_path">
+                            <button type="button" class="btn-capture" onclick="openCameraModal('front')">
+                                <i class="fas fa-camera"></i> Capture Front
+                            </button>
+                        </div>
+
+                        <!-- Back Side -->
+                        <div class="capture-box" id="capture-back-box">
+                            <div class="capture-header">
+                                <span>Back Side <span class="required" id="back-required-star" style="display:none;">*</span></span>
+                            </div>
+                            <div class="capture-body" id="back-preview-container">
+                                <i class="fas fa-camera retro-cam"></i>
+                                <p>Required for Address</p>
+                            </div>
+                            <img id="back-preview-img" class="preview-img hidden" alt="Back ID Preview">
+                            <input type="hidden" id="id_card_back_path" name="id_card_back_path">
+                            <button type="button" class="btn-capture" onclick="openCameraModal('back')">
+                                <i class="fas fa-camera"></i> Capture Back
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================== SECTION 2: BASIC INFO (Auto-populated if possible) ================== -->
+                <div class="form-section">
+                    <h2 class="section-title">Visitor Information</h2>
+                    
+                    <div class="form-row two-cols">
+                        <div class="input-group">
+                            <label for="visitor_name">Visitor Name <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-user input-icon"></i>
+                                <input type="text" id="visitor_name" name="visitor_name" placeholder="Enter full name" required>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="phone">Phone Number <span class="required">*</span></label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-mobile-screen input-icon"></i>
+                                <input type="tel" id="phone" name="phone" placeholder="10-digit mobile number" pattern="[0-9]{10}" inputmode="numeric" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="dob">Date of Birth</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-calendar-day input-icon"></i>
+                                <input type="date" id="dob" name="dob" class="custom-date-input">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="address_street">Street / Area Address</label>
+                            <div class="input-wrapper align-top">
+                                <i class="fas fa-home input-icon"></i>
+                                <textarea id="address_street" name="address_street" rows="2" placeholder="Street, Sector, or Local Area..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row two-cols">
+                        <div class="input-group">
+                            <label for="address_city">City</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-city input-icon"></i>
+                                <input type="text" id="address_city" name="address_city" placeholder="E.g., Bangalore">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="address_state">State</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-map input-icon"></i>
+                                <input type="text" id="address_state" name="address_state" placeholder="E.g., Karnataka">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================== SECTION 3: VISIT DETAILS ================== -->
+                <div class="form-section">
+                    <h2 class="section-title">Visit Details</h2>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Purpose of Visit <span class="required">*</span></label>
+                            <input type="hidden" id="purpose" name="purpose" required>
+                            <div class="chip-group" id="purpose-chips">
+                                <div class="chip" data-value="Delivery">Delivery</div>
+                                <div class="chip" data-value="Meeting">Meeting</div>
+                                <div class="chip" data-value="Resident Guest">Resident Guest</div>
+                                <div class="chip" data-value="Service">Service</div>
+                                <div class="chip" data-value="Maintenance">Maintenance</div>
+                                <div class="chip" data-value="Other">Other</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row two-cols">
+                        <div class="input-group">
+                            <label for="person_to_meet">Person to Meet</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-user-tie input-icon"></i>
+                                <input type="text" id="person_to_meet" name="person_to_meet" placeholder="Resident/Staff Name">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="flat_no">Flat / Unit No.</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-building input-icon"></i>
+                                <input type="text" id="flat_no" name="flat_no" placeholder="e.g. A-102">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row two-cols">
+                        <div class="input-group">
+                            <label>No. of Persons <span class="required">*</span></label>
+                            <div class="stepper-wrapper">
+                                <button type="button" class="stepper-btn" onclick="updatePersons(-1)"><i class="fas fa-minus"></i></button>
+                                <input type="number" id="num_persons" name="num_persons" value="1" min="1" max="10" readonly>
+                                <button type="button" class="stepper-btn" onclick="updatePersons(1)"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Vehicle Type <span class="required">*</span></label>
+                            <input type="hidden" id="vehicle_type" name="vehicle_type" required>
+                            <div class="chip-group" id="vehicle-type-chips">
+                                <div class="chip" data-value="Car">Car</div>
+                                <div class="chip" data-value="Bike">Bike</div>
+                                <div class="chip" data-value="Auto">Auto</div>
+                                <div class="chip" data-value="Truck">Truck</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row two-cols">
+                        <div class="input-group">
+                            <label for="company">Company / Organization</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-briefcase input-icon"></i>
+                                <input type="text" id="company" name="company" placeholder="E.g., Amazon, UrbanClap">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Expected Duration</label>
+                            <input type="hidden" id="expected_duration" name="expected_duration">
+                            <div class="chip-group small" id="duration-chips">
+                                <div class="chip" data-value="< 1 hr">&lt; 1 hr</div>
+                                <div class="chip" data-value="1-3 hrs">1-3 hrs</div>
+                                <div class="chip" data-value="Half Day">Half Day</div>
+                                <div class="chip" data-value="Full Day">Full Day</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="remarks">Remarks</label>
+                            <div class="input-wrapper align-top">
+                                <i class="fas fa-comment-dots input-icon"></i>
+                                <textarea id="remarks" name="remarks" rows="1" placeholder="Any additional notes..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Action Buttons -->
+                <div class="form-actions">
+                    <button type="submit" class="btn-submit" id="submit-btn">
+                        <i class="fas fa-check-circle"></i> Complete Entry
+                    </button>
+                </div>
+                
+                <div class="footer-links">
+                    <a href="/api/dashboard" class="dashboard-link"><i class="fas fa-arrow-left"></i> View Dashboard</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Camera / Upload Modal Overlay -->
+    <div id="camera-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Capture ID Card</h3>
+                <button type="button" class="btn-close" onclick="closeCameraModal()"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Video stream container -->
+                <div id="video-container" class="video-container">
+                    <video id="camera-video" autoplay playsinline></video>
+                    <div class="camera-guideline" id="camera-guideline">
+                        <div class="frame-corners"></div>
+                        <p class="guide-text">Align ID Card within frame</p>
+                    </div>
+                    <canvas id="camera-canvas" class="hidden"></canvas>
+                </div>
+                
+                <div class="camera-error hidden" id="camera-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Camera not available.</p>
+                </div>
+
+                <!-- File upload fallback -->
+                <div class="fallback-upload" id="fallback-upload">
+                    <p>Or upload an image from your device:</p>
+                    <input type="file" id="file-upload" accept="image/*">
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeCameraModal()">Cancel</button>
+                <div class="action-buttons">
+                    <button type="button" class="btn-primary" id="btn-snap" onclick="takeSnapshot()">
+                        <i class="fas fa-camera"></i> Capture
+                    </button>
+                    <button type="button" class="btn-primary hidden" id="btn-upload-file" onclick="uploadSelectedFile()">
+                        <i class="fas fa-upload"></i> Upload
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading / Success Overlay -->
+    <div id="status-overlay" class="modal-overlay hidden">
+        <div class="status-content">
+            <div id="loading-spinner" class="">
+                <div class="spinner"></div>
+                <p>Processing Entry...</p>
+            </div>
+            <div id="success-message" class="hidden">
+                <div class="success-icon"><i class="fas fa-check"></i></div>
+                <h3>Entry Successful</h3>
+                <p>Redirecting to status screen...</p>
+            </div>
+            <div id="error-message" class="hidden">
+                <div class="error-icon"><i class="fas fa-times"></i></div>
+                <h3>Submission Failed</h3>
+                <p id="error-text">Please try again.</p>
+                <button type="button" class="btn-primary mt-3" onclick="closeStatusOverlay()">Dismiss</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/kiosk.js"></script>
+</body>
+</html>
