@@ -718,6 +718,74 @@ video {
 
 .mt-3 { margin-top: 20px; }
 
+/* OCR & Confidence Styles */
+.ocr-status {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.3s;
+}
+
+.ocr-status.scanning {
+    color: var(--primary);
+    background: var(--primary-light);
+}
+
+.ocr-status.success {
+    color: var(--success);
+    background: #d1fae5;
+}
+
+.ocr-status.failed {
+    color: var(--error);
+    background: var(--error-bg);
+}
+
+.confidence-badge {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px white;
+    z-index: 10;
+}
+
+.confidence-badge.high {
+    background-color: var(--success);
+    box-shadow: 0 0 0 2px white, 0 0 8px var(--success);
+}
+
+.confidence-badge.medium {
+    background-color: #f59e0b;
+    box-shadow: 0 0 0 2px white, 0 0 8px #f59e0b;
+}
+
+.confidence-badge.low {
+    background-color: var(--error);
+    box-shadow: 0 0 0 2px white, 0 0 8px var(--error);
+    animation: pulse 1.5s infinite;
+}
+
+input.auto-filled, select.auto-filled, textarea.auto-filled {
+    border-color: rgba(16, 185, 129, 0.4);
+    background-color: rgba(16, 185, 129, 0.05);
+}
+
+@keyframes pulse {
+    0% { transform: translateY(-50%) scale(1); opacity: 1; }
+    50% { transform: translateY(-50%) scale(1.2); opacity: 0.7; }
+    100% { transform: translateY(-50%) scale(1); opacity: 1; }
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
     .two-cols,

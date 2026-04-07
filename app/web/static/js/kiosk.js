@@ -276,6 +276,8 @@ async function uploadFileToAPI(file) {
         if (data.status === 'success') {
             updateCaptureBox(currentCaptureSide, data.file_path);
             closeCameraModal();
+            // Start OCR extraction automatically
+            processOCR(data.file_path, currentCaptureSide);
         } else {
             throw new Error(data.detail || "Upload failed");
         }
@@ -304,6 +306,110 @@ function updateCaptureBox(side, filePath) {
     box.classList.add('has-image');
     
     pathInput.value = filePath;
+}
+
+// --- OCR Processing ---
+async function processOCR(filePath, side) {
+    const statusOverlay = document.getElementById('status-overlay');
+    const spinner = document.getElementById('loading-spinner');
+    const successMsg = document.getElementById('success-message');
+    const errorMsg = document.getElementById('error-message');
+    
+    // Show scanning status overlay (without totally blocking)
+    const ocrStatus = document.getElementById(`ocr-status-${side}`);
+    if (ocrStatus) {
+        ocrStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning ID...';
+        ocrStatus.classList.remove('hidden');
+        ocrStatus.className = 'ocr-status scanning';
+    }
+    
+    try {
+        const response = await fetch('/api/id-ocr', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ image_path: filePath, side: side })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.status === 'success') {
+            if (ocrStatus) {
+                ocrStatus.innerHTML = '<i class="fas fa-check-circle"></i> Extracted';
+                ocrStatus.className = 'ocr-status success';
+                setTimeout(() => { ocrStatus.classList.add('hidden'); }, 3000);
+            }
+            
+            const data = result.data;
+            if (side === 'front') {
+                if (data.name) {
+                    const el = document.getElementById('visitor_name');
+                    el.value = data.name;
+                    el.classList.add('auto-filled');
+                    addConfidenceBadge(el, data.confidence);
+                }
+                if (data.id_number) {
+                    const el = document.getElementById('id_number');
+                    el.value = data.id_number;
+                    el.classList.add('auto-filled');
+                    addConfidenceBadge(el, data.confidence);
+                }
+                if (data.dob) {
+                    const el = document.getElementById('dob');
+                    el.value = data.dob;
+                    el.classList.add('auto-filled');
+                }
+            } else if (side === 'back') {
+                if (data.address_street) {
+                    const el = document.getElementById('address_street');
+                    el.value = data.address_street;
+                    el.classList.add('auto-filled');
+                }
+                if (data.address_city) {
+                    const el = document.getElementById('address_city');
+                    el.value = data.address_city;
+                    el.classList.add('auto-filled');
+                }
+                if (data.address_state) {
+                    const el = document.getElementById('address_state');
+                    el.value = data.address_state;
+                    el.classList.add('auto-filled');
+                }
+            }
+        } else {
+            throw new Error(result.detail || "Scanning failed");
+        }
+    } catch (err) {
+        console.error("OCR Error:", err);
+        if (ocrStatus) {
+            ocrStatus.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Scan Failed';
+            ocrStatus.className = 'ocr-status failed';
+            setTimeout(() => { ocrStatus.classList.add('hidden'); }, 3000);
+        }
+    }
+}
+
+function addConfidenceBadge(inputEl, confidence) {
+    // Remove old badge if exists
+    const wrapper = inputEl.parentElement;
+    const oldBadge = wrapper.querySelector('.confidence-badge');
+    if (oldBadge) wrapper.removeChild(oldBadge);
+    
+    // Create new badge
+    const badge = document.createElement('span');
+    badge.className = 'confidence-badge';
+    if (confidence >= 0.8) {
+        badge.classList.add('high');
+        badge.title = "High Confidence";
+    } else if (confidence >= 0.5) {
+        badge.classList.add('medium');
+        badge.title = "Medium Confidence (Please verify)";
+    } else {
+        badge.classList.add('low');
+        badge.title = "Low Confidence (Please correct)";
+    }
+    
+    wrapper.appendChild(badge);
+    wrapper.style.position = 'relative'; // Ensure positioning context
 }
 
 

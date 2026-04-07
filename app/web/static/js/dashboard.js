@@ -197,6 +197,7 @@ function updateVehiclesTable(vehicles) {
     
     // Reverse to show newest first
     const reversedVehicles = [...vehicles].reverse();
+    window.displayedVehicles = reversedVehicles; // For modal access
     
     tbody.innerHTML = reversedVehicles.map((vehicle, index) => {
         const status = vehicle.out_time ? 
@@ -210,7 +211,7 @@ function updateVehiclesTable(vehicles) {
             '<span class="status-badge" style="background:#f1f5f9; color:#475569;"><i class="fas fa-user-clock"></i> Visitor</span>';
         
         const row = `
-            <tr style="animation: slideInUp 0.6s ease ${index * 0.08}s backwards;">
+            <tr class="clickable-row" onclick="openVisitorDetail(${index})" style="animation: slideInUp 0.6s ease ${index * 0.08}s backwards;">
                 <td>
                     <strong style="font-size: 0.95rem; letter-spacing: 0.3px;">${escapeHtml(vehicle.vehicle_no)}</strong>
                 </td>
@@ -240,6 +241,140 @@ function updateVehiclesTable(vehicles) {
     
     console.log('Table updated successfully'); // Debug log
 }
+
+/**
+ * Visitor Detail Modal Logic (Phase 6)
+ */
+function openVisitorDetail(index) {
+    if (!window.displayedVehicles || !window.displayedVehicles[index]) return;
+    
+    const v = window.displayedVehicles[index];
+    
+    // Helper to set text or "-"
+    const setT = (id, val) => {
+        document.getElementById(id).textContent = val ? val : "-";
+    };
+    
+    // Vehicle Info
+    setT('vdetail-plate', v.vehicle_no);
+    setT('vdetail-type', v.visitor_type && v.visitor_type !== 'guest' ? v.visitor_type.toUpperCase() : 'Guest');
+    
+    const vImg = document.getElementById('vdetail-vehicle-img');
+    const vImgNa = document.getElementById('vdetail-vehicle-img-na');
+    if (v.image_path) {
+        vImg.src = `/${v.image_path}`;
+        vImg.classList.remove('hidden');
+        vImgNa.classList.add('hidden');
+    } else {
+        vImg.classList.add('hidden');
+        vImgNa.classList.remove('hidden');
+    }
+    
+    // Visitor Profile
+    setT('vdetail-name', v.visitor_name);
+    setT('vdetail-phone', v.phone);
+    setT('vdetail-company', v.company || '-');
+    setT('vdetail-dob', v.dob || '-');
+    
+    // ID Verification
+    setT('vdetail-idtype', v.id_type ? v.id_type.toUpperCase() : '-');
+    setT('vdetail-idno', v.id_number || '-');
+    
+    const frontImg = document.getElementById('vdetail-idfront-img');
+    const frontNa = document.getElementById('vdetail-idfront-img-na');
+    if (v.id_card_front_path) {
+        frontImg.src = `/${v.id_card_front_path}`;
+        frontImg.classList.remove('hidden');
+        frontNa.classList.add('hidden');
+    } else {
+        frontImg.classList.add('hidden');
+        frontNa.classList.remove('hidden');
+    }
+    
+    const backImg = document.getElementById('vdetail-idback-img');
+    const backNa = document.getElementById('vdetail-idback-img-na');
+    if (v.id_card_back_path) {
+        backImg.src = `/${v.id_card_back_path}`;
+        backImg.classList.remove('hidden');
+        backNa.classList.add('hidden');
+    } else {
+        backImg.classList.add('hidden');
+        backNa.classList.remove('hidden');
+    }
+    
+    // Address
+    setT('vdetail-street', v.address_street || '-');
+    setT('vdetail-city', v.address_city || '-');
+    setT('vdetail-state', v.address_state || '-');
+    
+    // Visit Details
+    setT('vdetail-purpose', v.purpose || '-');
+    setT('vdetail-meet', v.person_to_meet || '-');
+    setT('vdetail-flat', v.flat_number || '-');
+    setT('vdetail-persons', v.number_of_persons ? v.number_of_persons : '1');
+    setT('vdetail-exp-duration', v.expected_duration ? v.expected_duration + ' mins' : '-');
+    setT('vdetail-remarks', v.remarks || '-');
+    
+    // Timestamps
+    setT('vdetail-in', formatDateTime(v.in_time));
+    setT('vdetail-out', v.out_time ? formatDateTime(v.out_time) : '-');
+    
+    // Target Status and Duration
+    const statusEl = document.getElementById('vdetail-status');
+    const actDurEl = document.getElementById('vdetail-actual-duration');
+    
+    if (v.out_time) {
+        statusEl.innerHTML = '<span class="status-badge status-out"><i class="fas fa-sign-out-alt"></i> Exited</span>';
+        
+        // Calculate diff
+        const inD = new Date(v.in_time);
+        const outD = new Date(v.out_time);
+        const diffMins = Math.round((outD - inD) / 60000);
+        
+        if (diffMins < 60) actDurEl.textContent = `${diffMins} mins`;
+        else {
+            const h = Math.floor(diffMins / 60);
+            const m = diffMins % 60;
+            actDurEl.textContent = `${h}h ${m}m`;
+        }
+    } else {
+        statusEl.innerHTML = '<span class="status-badge status-in"><i class="fas fa-sign-in-alt"></i> Inside</span>';
+        actDurEl.textContent = "Currently Inside";
+    }
+    
+    // Show Modal
+    const modal = document.getElementById('visitor-detail-modal');
+    modal.style.display = 'flex';
+}
+
+function closeVisitorDetail() {
+    document.getElementById('visitor-detail-modal').style.display = 'none';
+}
+
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('image-lightbox').style.display = 'flex';
+}
+
+function closeLightbox() {
+    document.getElementById('image-lightbox').style.display = 'none';
+}
+
+// Close modals on clicking outside or ESC
+window.addEventListener('click', function(event) {
+    const vModal = document.getElementById('visitor-detail-modal');
+    const lBox = document.getElementById('image-lightbox');
+    
+    if (event.target === vModal) closeVisitorDetail();
+    if (event.target === lBox) closeLightbox();
+});
+window.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeVisitorDetail();
+        closeLightbox();
+    }
+});
+
 
 /**
  * Get vehicle icon

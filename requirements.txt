@@ -13,9 +13,7 @@ requests==2.31.0
 numpy>=2.0.0
 opencv-contrib-python>=4.10.0
 easyocr>=1.7.1
-ultralytics>=8.0.0
 pyclipper
-ultralytics>=8.0.0
 
 # Data Validation
 pydantic>=2.10.0

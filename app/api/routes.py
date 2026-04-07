@@ -26,6 +26,7 @@ from .db_sqlite import (
     delete_regular_user,
     update_kiosk_visit_details
 )
+from .id_ocr import extract_id_details
 
 router = APIRouter()
 
@@ -497,3 +498,26 @@ async def upload_id_card(file: UploadFile = File(...)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+
+class IDOCRRequest(BaseModel):
+    image_path: str
+    side: str = "front"
+
+@router.post("/id-ocr")
+async def id_card_ocr(request: IDOCRRequest):
+    """
+    Extract details from an ID card image using Azure OCR
+    """
+    try:
+        result = extract_id_details(request.image_path, request.side)
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+            
+        return {
+            "status": "success",
+            "data": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing OCR: {str(e)}")
