@@ -3,9 +3,16 @@ Configuration
 Device and API configuration settings
 """
 import os
+from dotenv import load_dotenv
+
+# Load .env file if it exists, otherwise check .env.example
+if os.path.exists(".env"):
+    load_dotenv(".env")
+elif os.path.exists(".env.example"):
+    load_dotenv(".env.example")
 
 # Camera Configuration
-DEFAULT_CAMERA_INDEX = 0
+DEFAULT_CAMERA_INDEX = 1  # Change this: 0 = laptop camera, 1 = external camera, etc.
 CAPTURE_KEY = 'c'  # Key to press for capture
 QUIT_KEY = 'q'     # Key to press to quit
 

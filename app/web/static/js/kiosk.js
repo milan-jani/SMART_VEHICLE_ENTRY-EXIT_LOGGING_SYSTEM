@@ -211,6 +211,13 @@ function showCameraFallback() {
     isCameraActive = false;
     video.style.display = 'none';
     cameraError.classList.remove('hidden');
+    
+    // Provide specific advice for the "Busy" case
+    const errorText = cameraError.querySelector('p');
+    if (errorText) {
+        errorText.innerHTML = "Camera not available.<br><small>If you just detected a plate, please wait a moment or ensure the plate reader window is released.</small>";
+    }
+    
     btnSnap.classList.add('hidden');
     btnUploadFile.classList.remove('hidden');
 }
@@ -340,41 +347,48 @@ async function processOCR(filePath, side) {
             }
             
             const data = result.data;
-            if (side === 'front') {
-                if (data.name) {
-                    const el = document.getElementById('visitor_name');
+            // Fill ALL available fields regardless of front/back side.
+            // Only overwrite if field is empty or was previously auto-filled.
+            // This ensures DL front scan fills address too.
+            
+            if (data.name) {
+                const el = document.getElementById('visitor_name');
+                if (!el.value || el.classList.contains('auto-filled')) {
                     el.value = data.name;
                     el.classList.add('auto-filled');
                     addConfidenceBadge(el, data.confidence);
                 }
-                if (data.id_number) {
-                    const el = document.getElementById('id_number');
+            }
+            if (data.id_number) {
+                const el = document.getElementById('id_number');
+                if (!el.value || el.classList.contains('auto-filled')) {
                     el.value = data.id_number;
                     el.classList.add('auto-filled');
                     addConfidenceBadge(el, data.confidence);
                 }
-                if (data.dob) {
-                    const el = document.getElementById('dob');
+            }
+            if (data.dob) {
+                const el = document.getElementById('dob');
+                if (!el.value || el.classList.contains('auto-filled')) {
                     el.value = data.dob;
                     el.classList.add('auto-filled');
                 }
-            } else if (side === 'back') {
-                if (data.address_street) {
-                    const el = document.getElementById('address_street');
-                    el.value = data.address_street;
-                    el.classList.add('auto-filled');
-                }
-                if (data.address_city) {
-                    const el = document.getElementById('address_city');
-                    el.value = data.address_city;
-                    el.classList.add('auto-filled');
-                }
-                if (data.address_state) {
-                    const el = document.getElementById('address_state');
-                    el.value = data.address_state;
+            }
+            if (data.phone) {
+                const el = document.getElementById('phone');
+                if (!el.value || el.classList.contains('auto-filled')) {
+                    el.value = data.phone;
                     el.classList.add('auto-filled');
                 }
             }
+            if (data.address) {
+                const el = document.getElementById('address');
+                if (!el.value || el.classList.contains('auto-filled')) {
+                    el.value = data.address;
+                    el.classList.add('auto-filled');
+                }
+            }
+
         } else {
             throw new Error(result.detail || "Scanning failed");
         }

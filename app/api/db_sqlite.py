@@ -82,6 +82,7 @@ def init_db():
         ("company", "TEXT DEFAULT ''"),
         ("expected_duration", "TEXT DEFAULT ''"),
         ("remarks", "TEXT DEFAULT ''"),
+        ("address", "TEXT DEFAULT ''"),
     ]
     
     for col_name, col_def in new_columns:
@@ -362,7 +363,7 @@ def update_kiosk_visit_details(vehicle_no: str, details: Dict[str, Any]) -> bool
     allowed_fields = [
         'visitor_name', 'phone', 'purpose', 'id_type', 'id_number',
         'id_card_front_path', 'id_card_back_path', 'address_street',
-        'address_city', 'address_state', 'dob',
+        'address_city', 'address_state', 'address', 'dob',
         'person_to_meet', 'flat_no', 'num_persons', 'vehicle_type',
         'company', 'expected_duration', 'remarks'
     ]

@@ -160,7 +160,7 @@ def process_vehicle(plate_number: str, image_path: str) -> None:
         print(f"[NEW ENTRY] Worker entry created for: {name}")
         print(f"[LOGGED] Vehicle {plate_number} marked as INSIDE. Form skipped.")
         
-    elif entry_result['status'] == 'new':
+    if entry_result['status'] == 'new':
         # New visitor vehicle entry created - open form for visitor details
         print(f"[NEW ENTRY] New visitor entry created!")
         print(f"[LOGGED] Vehicle {plate_number} marked as INSIDE")
@@ -169,8 +169,10 @@ def process_vehicle(plate_number: str, image_path: str) -> None:
             print("[BROWSER] Opening visitor form...")
             open_visitor_form(plate_number)
             print("[INFO] Please fill out the visitor form in your browser.")
+            return True  # Signal to pause camera for ID scan
         else:
             print(f"[INFO] Visit {API_KIOSK_URL}?plate={plate_number} to fill visitor details")
+            return False
     
     elif entry_result['status'] == 'existing':
         # Vehicle already has an open entry (already inside) - mark as exit
@@ -184,6 +186,9 @@ def process_vehicle(plate_number: str, image_path: str) -> None:
             print(f"[LOGGED] Exit time recorded successfully")
         else:
             print(f"[ERROR] Failed to record exit time")
+        return False
+    
+    return False
 
 
 def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
@@ -269,11 +274,31 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                     continue
                 
                 # Process the vehicle
-                process_vehicle(plate_number, image_path)
+                should_pause = process_vehicle(plate_number, image_path)
                 
                 print("-"*60 + "\n")
-                print("[INFO] Camera still running... Ready for next vehicle")
-                print("[INFO] Press 'c' to capture | 'q' to quit\n")
+                
+                if should_pause:
+                    print("[PAUSE] Camera released for ID scan in browser.")
+                    print("[ACTION] Please complete the ID scanning in your browser window.")
+                    print("[ACTION] Once finished, return here and press ENTER to resume plate detection.")
+                    
+                    cap.release()
+                    cv2.destroyAllWindows()
+                    
+                    # Wait for user to finish
+                    input("\n>>> Press ENTER to resume camera...")
+                    
+                    # Restart camera
+                    print("\n[RESUME] Re-initializing camera...")
+                    cap = cv2.VideoCapture(camera_index)
+                    if not cap.isOpened():
+                        print("[ERROR] Failed to re-open camera. Please restart the script.")
+                        return
+                    print("[SUCCESS] Camera restarted. Ready for next vehicle.\n")
+                else:
+                    print("[INFO] Camera still running... Ready for next vehicle")
+                    print("[INFO] Press 'c' to capture | 'q' to quit\n")
             
             elif key == ord('q'):
                 # Quit button pressed
