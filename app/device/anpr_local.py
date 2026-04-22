@@ -103,9 +103,9 @@ def detect_plate_from_image(image_path: str) -> Optional[str]:
             cleaned_plate = validate_and_clean_plate(text_ocr)
             if cleaned_plate:
                 print(f"[SUCCESS-LOCAL] OCR Extracted: {cleaned_plate} (Confidence: {ocr_conf:.2f})")
-                # Fallback to Cloud API if confidence is too low
-                if ocr_conf < 0.45:
-                    print(f"[WARNING] Local confidence ({ocr_conf:.2f}) is too low. Sending to Cloud API fallback...")
+                # Fallback to Cloud API if confidence is too low (User requested 80-85%)
+                if ocr_conf < 0.85:
+                    print(f"[WARNING] Local confidence ({ocr_conf:.2f}) is below 85%. Sending to Cloud API fallback...")
                     return None
                 return cleaned_plate
             else:

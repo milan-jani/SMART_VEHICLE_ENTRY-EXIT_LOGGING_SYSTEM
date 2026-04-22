@@ -195,11 +195,11 @@ function updateVehiclesTable(vehicles) {
         return;
     }
     
-    // Reverse to show newest first
-    const reversedVehicles = [...vehicles].reverse();
-    window.displayedVehicles = reversedVehicles; // For modal access
+    // Backend already sends DESC order (newest first)
+    const displayedVehicles = [...vehicles];
+    window.displayedVehicles = displayedVehicles; // For modal access
     
-    tbody.innerHTML = reversedVehicles.map((vehicle, index) => {
+    tbody.innerHTML = displayedVehicles.map((vehicle, index) => {
         const status = vehicle.out_time ? 
             '<span class="status-badge status-out">Exited</span>' : 
             '<span class="status-badge status-in">Inside</span>';
