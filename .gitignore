@@ -126,6 +126,7 @@ Thumbs.db
 data/photos/
 data/id_cards/
 data/sessions/
+data/temp/
 *.jpg
 *.png
 *.webp

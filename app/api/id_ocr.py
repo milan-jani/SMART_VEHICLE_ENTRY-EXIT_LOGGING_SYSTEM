@@ -3,7 +3,7 @@ Azure Computer Vision OCR Module
 Extracts details from ID cards (Aadhaar, PAN, DL) using Azure Computer Vision v3.2.
 Supports: Aadhaar Card, Driving License (DL), PAN Card, Voter ID
 
-Uses unified label-aware parsing that works regardless of front/back side.
+Uses unified label-aware parsing and spatial filtering to ignore right-side noise.
 """
 import os
 import time
@@ -16,8 +16,7 @@ from app.device.config import AZURE_CV_ENDPOINT, AZURE_CV_KEY
 def extract_id_details(image_path: str, side: str = "front") -> dict:
     """
     Sends the image to Azure Computer Vision Read API and extracts text details.
-    Uses unified smart parsing that works for Aadhaar, DL, PAN, etc.
-    Returns ALL fields (name, id, dob, phone, address) regardless of 'side'.
+    Uses spatial filtering to ignore noise on the right side of the card.
     """
     if not AZURE_CV_ENDPOINT or not AZURE_CV_KEY:
         return {"error": "Azure Computer Vision not configured"}
@@ -66,12 +65,24 @@ def extract_id_details(image_path: str, side: str = "front") -> dict:
         if not ocr_result:
             return {"error": "OCR polling timed out"}
             
-        # Step 3: Extract lines
+        # Step 3: Extract lines with spatial info
         lines = []
         read_results = ocr_result.get("analyzeResult", {}).get("readResults", [])
-        if read_results:
-            for line in read_results[0].get("lines", []):
-                lines.append(line.get("text", "").strip())
+        if not read_results:
+            return {"error": "No text detected in image"}
+            
+        page = read_results[0]
+        img_width = page.get("width", 1)
+        
+        for line_obj in page.get("lines", []):
+            text = line_obj.get("text", "").strip()
+            bbox = line_obj.get("boundingBox", [0]*8)
+            # min_x is the left-most position
+            min_x = min(bbox[0], bbox[2], bbox[4], bbox[6])
+            lines.append({
+                "text": text,
+                "x": min_x
+            })
                 
         if not lines:
             return {"error": "No text detected in image"}
@@ -79,17 +90,17 @@ def extract_id_details(image_path: str, side: str = "front") -> dict:
         # Debug: log raw OCR lines in terminal
         print(f"[OCR] Raw lines detected ({len(lines)}):")
         for i, line in enumerate(lines):
-            print(f"  {i+1}. {line}")
+            print(f"  {i+1}. [{int(line['x'])}] {line['text']}")
             
-        # Detect document type and extract all fields
+        # Detect document type
         doc_type = _detect_document_type(lines)
         print(f"[OCR] Detected document type: {doc_type}")
         
-        result = _extract_all_fields(lines, doc_type)
+        # Extract all fields using spatial context and side awareness
+        result = _extract_all_fields(lines, doc_type, img_width, side)
         
-        print(f"[OCR] Extracted: name='{result.get('name')}', id='{result.get('id_number')}', "
-              f"dob='{result.get('dob')}', phone='{result.get('phone')}', "
-              f"address='{result.get('address')}'")
+        print(f"[OCR] Extracted ({side}): name='{result.get('name')}', id='{result.get('id_number')}', "
+              f"dob='{result.get('dob')}', address='{result.get('address')}'")
         
         return result
             
@@ -104,7 +115,7 @@ def extract_id_details(image_path: str, side: str = "front") -> dict:
 
 def _detect_document_type(lines):
     """Detect if the document is Aadhaar, DL, PAN, Voter ID, etc."""
-    full_text = " ".join(lines).upper()
+    full_text = " ".join([l['text'] for l in lines]).upper()
     
     if "DRIVING" in full_text and ("LICENCE" in full_text or "LICENSE" in full_text):
         return "DL"
@@ -117,7 +128,7 @@ def _detect_document_type(lines):
     
     # Detect by ID number patterns if header text not found
     for line in lines:
-        text = line.upper()
+        text = line['text'].upper()
         if re.search(r'\b[A-Z]{2}\d{2}\s?\d{11,13}\b', text):
             return "DL"
         if re.search(r'\b\d{4}\s\d{4}\s\d{4}\b', text):
@@ -132,24 +143,36 @@ def _detect_document_type(lines):
 #  Universal Field Extractor
 # ─────────────────────────────────────────────────────────────
 
-def _extract_all_fields(lines, doc_type):
+def _extract_all_fields(lines, doc_type, img_width, side="front"):
     """
     Universal field extractor for Indian ID documents.
-    Returns a single 'address' field (not split into street/city/state).
     """
+    # 1. DISABLE DL BACK SIDE: Per user request, DL back side has no useful info and causes noise.
+    if doc_type == "DL" and side == "back":
+        print("[OCR] DL Back side detected. Skipping extraction as requested.")
+        return {
+            "name": "", "id_number": "", "dob": "", "phone": "", "address": "",
+            "message": "Back side not required for DL",
+            "confidence": 1.0
+        }
+
     result = {
         "name": "",
         "id_number": "",
         "dob": "",
         "phone": "",
         "address": "",
-        "confidence": 0.82
+        "confidence": 0.85
     }
     
-    _extract_id_number(lines, result)
-    _extract_name(lines, result, doc_type)
-    _extract_dob(lines, result, doc_type)
-    _extract_address_and_phone(lines, result, doc_type)
+    # Only extract identity info from the front side
+    if side == "front":
+        _extract_id_number(lines, result)
+        _extract_name(lines, result, doc_type)
+        _extract_dob(lines, result, doc_type)
+    
+    # Always try to extract address (can be on either side, but mostly back)
+    _extract_address_and_phone(lines, result, doc_type, img_width)
     
     return result
 
@@ -159,7 +182,7 @@ def _extract_id_number(lines, result):
     for line in lines:
         if result["id_number"]:
             break
-        text = line.upper().strip()
+        text = line['text'].upper().strip()
         
         # DL number: GJ25 20230003704
         m = re.search(r'\b([A-Z]{2}\d{2}\s?\d{11,13})\b', text)
@@ -167,7 +190,7 @@ def _extract_id_number(lines, result):
             result["id_number"] = m.group(1)
             continue
         
-        # Aadhaar: 9218 5218 0131 (skip VID lines)
+        # Aadhaar
         if "VID" not in text:
             m = re.search(r'\b(\d{4}\s\d{4}\s\d{4})\b', text)
             if m:
@@ -179,33 +202,25 @@ def _extract_id_number(lines, result):
         if m:
             result["id_number"] = m.group(1)
             continue
-        
-        # Voter ID: ABC1234567
-        m = re.search(r'\b([A-Z]{3}\d{7})\b', text)
-        if m:
-            result["id_number"] = m.group(1)
-            continue
 
 
 def _extract_name(lines, result, doc_type):
     """Extract person's name — label-based first, then heuristic fallback."""
     
-        # Strategy 1: Label-based (DL style: "Name : YEDUNANDAN S NAMBIAR" or "Name YEDUNANDAN")
     for line in lines:
-        upper = line.upper().strip()
+        upper = line['text'].upper().strip()
         
         m = re.match(r'NAME\s*[:：]?\s+(.+)', upper)
         if m:
             name_val = m.group(1).strip()
-            # Remove "Holder's Signature" noise from right side of DL
+            # Clean noise
             name_val = re.sub(r"HOLDER.*", "", name_val, flags=re.IGNORECASE).strip()
-            # Keep only letters and spaces
             name_val = re.sub(r"[^A-Za-z\s]", "", name_val).strip()
             if len(name_val) > 2:
                 result["name"] = name_val.title()
             return
     
-    # Strategy 2: Heuristic fallback (Aadhaar style — clean alphabetic line)
+    # Heuristic fallback
     SKIP_WORDS = {
         "GOVERNMENT", "INDIA", "AADHAAR", "MALE", "FEMALE", "DOB", "VID",
         "ISSUE", "DRIVING", "LICENCE", "LICENSE", "UNION", "UNIQUE",
@@ -213,41 +228,27 @@ def _extract_name(lines, result, doc_type):
         "HOLDER", "SIGNATURE", "BLOOD", "GROUP", "ORGAN", "DONOR",
         "SON", "DAUGHTER", "WIFE", "VALIDITY", "INCOME", "TAX",
         "DEPARTMENT", "PERMANENT", "ACCOUNT", "ADDRESS", "ADD",
-        "TRANSPORT", "STATE", "ISSUED", "DATE", "BIRTH", "FATHER",
-        "HUSBAND", "REPUBLIC", "GUJARAT", "MAHARASHTRA", "RAJASTHAN",
-        "DELHI", "KARNATAKA", "TAMIL", "BENGAL", "PRADESH", "KERALA",
-        "PUNJAB", "HARYANA", "MADHYA", "UTTAR", "BIHAR", "ODISHA",
+        "TRANSPORT", "STATE", "DATE", "BIRTH", "FATHER", "HUSBAND"
     }
     
     for line in lines:
-        text = line.strip()
+        text = line['text'].strip()
         upper = text.upper()
         
-        # Skip if any skip word is present
-        words_in_line = set(upper.split())
-        if words_in_line & SKIP_WORDS:
-            continue
-        # Skip non-ASCII (Gujarati, Hindi, etc.)
-        if any(ord(c) > 127 for c in text):
-            continue
-        # Skip lines containing digits
-        if re.search(r'\d', text):
-            continue
-        # Skip very short lines
-        if len(text) <= 4:
-            continue
-        # Valid name: alphabetic with spaces, at least 2 words
+        if any(w in upper for w in SKIP_WORDS): continue
+        if any(ord(c) > 127 for c in text): continue
+        if re.search(r'\d', text): continue
+        if len(text) <= 4: continue
+        
         if re.match(r'^[A-Za-z][A-Za-z\s]+$', text) and len(text.split()) >= 2:
             result["name"] = text.title()
             return
 
 
 def _extract_dob(lines, result, doc_type):
-    """Extract Date of Birth. For DL, ONLY picks dates labeled as DOB/Date Of Birth."""
-    
-    # Strategy 1: Label on SAME line
+    """Extract Date of Birth."""
     for line in lines:
-        upper = line.upper().strip()
+        upper = line['text'].upper().strip()
         m = re.search(
             r'(?:D\.?O\.?B\.?|DATE\s*OF\s*BIRTH)\s*[:：]\s*(\d{2}[-/]\d{2}[-/]\d{4})',
             upper
@@ -256,137 +257,117 @@ def _extract_dob(lines, result, doc_type):
             result["dob"] = _format_date(m.group(1))
             return
     
-    # Strategy 2: Label on one line, date on NEXT line
-    for i, line in enumerate(lines):
-        upper = line.upper().strip()
-        if re.search(r'(?:D\.?O\.?B\.?|DATE\s*OF\s*BIRTH)\s*[:：]?\s*$', upper):
-            if i + 1 < len(lines):
-                next_line = lines[i + 1].strip()
-                m = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4})', next_line)
-                if m:
-                    result["dob"] = _format_date(m.group(1))
-                    return
-    
-    # Strategy 3: Fallback — first date NOT on Issue/Validity line (non-DL only)
-    if doc_type not in ["DL"]:
-        for line in lines:
-            upper = line.upper()
-            if any(w in upper for w in ["ISSUE", "VALID", "EXPIR", "VID"]):
-                continue
-            m = re.search(r'\b(\d{2}[-/]\d{2}[-/]\d{4})\b', upper)
-            if m:
-                result["dob"] = _format_date(m.group(1))
-                return
+    # Fallback to first date found that is not issue/validity
+    for line in lines:
+        upper = line['text'].upper()
+        if any(w in upper for w in ["ISSUE", "VALID", "EXPIR"]): continue
+        m = re.search(r'\b(\d{2}[-/]\d{2}[-/]\d{4})\b', upper)
+        if m:
+            result["dob"] = _format_date(m.group(1))
+            return
 
 
-def _extract_address_and_phone(lines, result, doc_type):
+def _extract_address_and_phone(lines, result, doc_type, img_width):
     """
-    Extract address and phone number from ANY side of the ID.
-    
-    Key fix for DL: OCR may interleave right-side text (Holder's Signature,
-    Organ Donor) between address lines. We SKIP those noise lines instead
-    of stopping the capture.
-    
-    Also extracts phone from DL "MOB NO 8980801979" pattern.
-    Returns a single combined address string.
+    Extract address and phone. 
+    Uses img_width and line['x'] to filter out right-side metadata (Issue dates, etc.)
     """
     address_lines = []
     capturing = False
     
+    # Noise text that often appears on DL right-side
+    RIGHT_SIDE_NOISE = r'\b(HOLDER|SIGNATURE|ORGAN\s*DONOR|BLOOD\s*GROUP|DATE\s*OF\s*FIRST\s*ISSUE|AUTHORITY|REGISTERING)\b'
+    
+    # Max X allowed for address lines (address is usually on the left/center)
+    # 75% of image width is a safe threshold for most DLs
+    MAX_ADDRESS_X = img_width * 0.75
+    
     for line in lines:
-        text = line.strip()
+        text = line['text'].strip()
         upper = text.upper()
+        lx = line['x']
         
-        # ---- Detect address start marker ----
+        # 1. Detect address start
         if re.search(r'\bADDRESS\b', upper) or re.search(r'\bADD\s*:', upper):
             capturing = True
-            # Check if content is on the same line after the label
             after = re.split(r'(?:ADDRESS|ADD)\s*[:：]?\s*', upper, maxsplit=1)
             if len(after) > 1 and len(after[-1].strip()) > 2:
-                address_lines.append(after[-1].strip().title())
+                # Still check spatial for the inline content
+                if lx < MAX_ADDRESS_X:
+                    address_lines.append(after[-1].strip().title())
             continue
         
         if capturing:
-            # SKIP noise lines but DON'T stop capturing
-            # DL has "Holder's Signature", "Organ Donor: No" on the right side
-            # OCR may interleave these between address lines
-            if re.search(r'\b(HOLDER|SIGNATURE|ORGAN\s*DONOR|BLOOD\s*GROUP)\b', upper):
-                continue  # Skip this line, keep looking for more address
+            # SPATIAL FILTER: Ignore lines on the extreme right
+            if lx > MAX_ADDRESS_X:
+                print(f"[OCR] Skipping right-side noise (spatial): {text}")
+                continue
+                
+            # TEXT FILTER: Ignore common noise labels
+            if re.search(RIGHT_SIDE_NOISE, upper):
+                continue
             
-            # Actually stop only for truly unrelated content (next section)
+            # Stop markers
             if re.search(r'\b(VID|DOWNLOAD|HELP|WWW\.|1947|ISSUE\s*DATE|NAME\s*:)\b', upper):
-                capturing = False
+                # Don't stop immediately if it's just one line of noise, 
+                # but if it looks like a new section, stop.
+                if "NAME" in upper or "ISSUE" in upper:
+                    capturing = False
                 continue
             
-            # Skip non-ASCII (Gujarati/Hindi duplicate)
-            if any(ord(c) > 127 for c in text):
-                continue
+            # Skip non-ASCII
+            if any(ord(c) > 127 for c in text): continue
             
-            # Skip extremely short noise (1-2 chars) or specific artifacts like 'Dat'
+            # Clean artifacts
             if (len(text) <= 2 and not any(c.isdigit() for c in text)) or upper in ['DAT', 'DAT,']:
                 continue
             
             address_lines.append(text.title())
             
-            # Pin code (6 digits) usually marks end of address
+            # Pincode usually ends address
             if re.search(r'\b\d{6}\b', text):
                 capturing = False
     
-    # ---- FALLBACK for DL: address-like patterns when "Address" label not found ----
+    # Fallback for DL address
     if not address_lines and doc_type == "DL":
-        print("[OCR] Address label not found, trying DL address pattern fallback...")
         for i, line in enumerate(lines):
-            upper = line.upper()
-            # Common Indian address starters
-            if re.search(r'\b(FLAT\s*N|HOUSE\s*N|ROOM\s*N|PLOT|BLOCK|BLDG|BUILDING|STREET|ROAD|LANE|NAGAR|COLONY|SECTOR|VILLAGE|DIST)\b', upper):
-                # Capture from this line onward (max 5 lines)
+            upper = line['text'].upper()
+            lx = line['x']
+            if lx < MAX_ADDRESS_X and re.search(r'\b(FLAT\s*N|HOUSE\s*N|ROOM\s*N|PLOT|BLOCK|BLDG|STREET|ROAD|LANE|NAGAR|COLONY|SECTOR|VILLAGE|DIST)\b', upper):
                 for j in range(i, min(i + 5, len(lines))):
-                    addr_text = lines[j].strip()
-                    addr_upper = addr_text.upper()
-                    if re.search(r'\b(HOLDER|SIGNATURE|ORGAN|VID|DOWNLOAD)\b', addr_upper):
-                        continue
-                    if any(ord(c) > 127 for c in addr_text):
-                        continue
-                    if len(addr_text) < 3:
-                        continue
-                    address_lines.append(addr_text.title())
-                    if re.search(r'\b\d{6}\b', addr_text):
-                        break
+                    l_obj = lines[j]
+                    t, x = l_obj['text'], l_obj['x']
+                    if x > MAX_ADDRESS_X: continue
+                    if re.search(RIGHT_SIDE_NOISE, t.upper()): continue
+                    if any(ord(c) > 127 for c in t): continue
+                    if len(t) < 3: continue
+                    address_lines.append(t.title())
+                    if re.search(r'\b\d{6}\b', t): break
                 break
     
-    # ---- Extract phone number from address lines ----
+    # Phone extraction
     cleaned = []
     for al in address_lines:
-        # Pattern 1: "MOB NO 8980801979" or "MOBILE NUMBER 8980801979"
         m = re.search(r'MOB(?:ILE)?\s*(?:NO|NUMBER|\.?)\s*[:.]?\s*(\d{10})', al, re.IGNORECASE)
         if m:
             result["phone"] = m.group(1)
-            al = re.sub(
-                r',?\s*MOB(?:ILE)?\s*(?:NO|NUMBER|\.?)\s*[:.]?\s*\d{10}',
-                '', al, flags=re.IGNORECASE
-            ).strip()
+            al = re.sub(r',?\s*MOB(?:ILE)?\s*(?:NO|NUMBER|\.?)\s*[:.]?\s*\d{10}', '', al, flags=re.IGNORECASE).strip()
         
-        # Pattern 2: standalone 10-digit number after comma in address
         if not result["phone"]:
             m2 = re.search(r',\s*(\d{10})\b', al)
             if m2:
                 result["phone"] = m2.group(1)
                 al = re.sub(r',\s*\d{10}\b', '', al).strip()
         
-        # Clean up trailing commas
         al = al.rstrip(',').strip()
-        if al:
-            cleaned.append(al)
-    address_lines = cleaned
+        if al: cleaned.append(al)
     
-    # ---- Combine into single address string (as-is) ----
-    if address_lines:
-        result["address"] = ", ".join(address_lines)
-        result["address"] = result["address"].strip().rstrip(',').strip()
+    if cleaned:
+        result["address"] = ", ".join(cleaned).strip().rstrip(',').strip()
 
 
 def _format_date(date_str):
-    """Convert DD/MM/YYYY or DD-MM-YYYY to YYYY-MM-DD for HTML date input."""
+    """Convert DD/MM/YYYY to YYYY-MM-DD."""
     d_str = date_str.replace("/", "-")
     parts = d_str.split("-")
     if len(parts) == 3 and len(parts[2]) == 4:

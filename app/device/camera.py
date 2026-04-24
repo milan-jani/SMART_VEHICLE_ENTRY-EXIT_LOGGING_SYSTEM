@@ -36,12 +36,16 @@ def capture_with_preview(camera_index: int = 0) -> Tuple[Optional[str], Optional
         key = cv2.waitKey(1) & 0xFF
 
         if key == ord('c'):
-            # Save to data/photos directory
+            # Save to data/photos/DD-MM-YYYY directory
             import os
+            from datetime import datetime
+            
+            date_str = datetime.now().strftime("%d-%m-%Y")
             photo_dir = os.path.join(
                 os.path.dirname(__file__),
                 "..", "..",
-                "data", "photos"
+                "data", "photos",
+                date_str
             )
             os.makedirs(photo_dir, exist_ok=True)
             
