@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxvidcore-dev \
     libx264-dev \
     libgtk2.0-dev \
+    libgtk-3-0 \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
