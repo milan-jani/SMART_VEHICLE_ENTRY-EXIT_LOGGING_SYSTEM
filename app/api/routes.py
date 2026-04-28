@@ -376,8 +376,9 @@ async def visitor_form_page(request: Request, plate: str = ""):
     Serve the visitor entry form
     """
     return templates.TemplateResponse(
+        request,
         "form.html",
-        {"request": request, "plate": plate, "success_message": None}
+        {"plate": plate, "success_message": None}
     )
 
 
@@ -398,9 +399,9 @@ async def submit_visitor_form(
         success_message = "Visitor logged successfully!" if success else "Error updating details"
         
         return templates.TemplateResponse(
+            request,
             "form.html",
             {
-                "request": request,
                 "plate": vehicle,
                 "success_message": success_message
             }
@@ -408,9 +409,9 @@ async def submit_visitor_form(
     
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "form.html",
             {
-                "request": request,
                 "plate": vehicle,
                 "success_message": f"Error: {str(e)}"
             }
@@ -423,8 +424,9 @@ async def dashboard_page(request: Request):
     Serve the dashboard page
     """
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
-        {"request": request}
+        {}
     )
 
 
@@ -436,8 +438,9 @@ async def kiosk_form_page(request: Request, plate: str = ""):
     Serve the kiosk visitor entry form
     """
     return templates.TemplateResponse(
+        request,
         "kiosk.html",
-        {"request": request, "plate": plate}
+        {"plate": plate}
     )
 
 @router.post("/kiosk")
