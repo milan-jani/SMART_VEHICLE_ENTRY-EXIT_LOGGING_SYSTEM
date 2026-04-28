@@ -1,4 +1,5 @@
-# Hybrid Logging System - Requirements
+# Hybrid Logging System - Full Requirements (Laptop / Full Mode)
+# Use this for development on Windows/Mac with local AI models
 
 # FastAPI and Web Framework
 fastapi>=0.115.0
@@ -9,15 +10,16 @@ jinja2==3.1.3
 # HTTP Requests
 requests==2.31.0
 
-# Computer Vision
+# Computer Vision & AI (Local ANPR)
 numpy>=2.0.0
 opencv-contrib-python>=4.10.0
 easyocr>=1.7.1
+ultralytics>=8.1.0
 pyclipper
 
 # Data Validation
 pydantic>=2.10.0
 
-# Optional: For production deployment
+# Production & Utilities
 gunicorn==21.2.0
 python-dotenv==1.0.0

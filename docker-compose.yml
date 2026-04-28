@@ -1,0 +1,23 @@
+# ──────────────────────────────────────────────────
+# Docker Compose - Raspberry Pi Deployment
+# ──────────────────────────────────────────────────
+
+services:
+  backend:
+    build: .
+    container_name: vehicle-logging-system
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist database and photos outside container
+      - ./data:/app/data
+      # Mount .env file for API keys
+      - ./.env:/app/.env:ro
+    environment:
+      - API_BASE_URL=http://0.0.0.0:8000
+    # Give access to USB cameras and GPIO (for future IR sensor use)
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+    privileged: true

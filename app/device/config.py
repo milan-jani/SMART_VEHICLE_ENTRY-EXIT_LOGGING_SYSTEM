@@ -18,7 +18,7 @@ QUIT_KEY = 'q'     # Key to press to quit
 
 # ANPR API Configuration
 ANPR_MODE = "hybrid"  # options: 'local', 'api', 'hybrid'
-PLATE_RECOGNIZER_API_KEY = os.getenv("PLATE_RECOGNIZER_API_KEY", "be5b13c29a83097837f0a4983efc62a5e1bb6d98")
+PLATE_RECOGNIZER_API_KEY = os.getenv("PLATE_RECOGNIZER_API_KEY", "")
 PLATE_RECOGNIZER_ENDPOINT = "https://api.platerecognizer.com/v1/plate-reader/"
 
 # Azure Computer Vision API Configuration (Phase 6)

@@ -136,3 +136,8 @@ data/temp/
 # Legacy/Archive folders
 git_ANPR/
 archived_legacy_tests/
+
+# AI Model files (downloaded at runtime, too heavy for Git)
+app/device/models/easyocr/
+*.pt
+*.pth

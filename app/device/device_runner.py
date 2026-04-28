@@ -9,7 +9,16 @@ from typing import Optional
 
 from app.device.camera import capture_with_preview
 from app.device.anpr import detect_plate_from_image as detect_plate_api
-from app.device.anpr_local import detect_plate_from_image as detect_plate_local
+
+# Safe import: Local ANPR needs EasyOCR + Ultralytics (heavy libs)
+# On Pi (cloud-only mode), these won't be installed — that's OK
+try:
+    from app.device.anpr_local import detect_plate_from_image as detect_plate_local
+    HAS_LOCAL_ANPR = True
+except (ImportError, ModuleNotFoundError) as e:
+    print(f"[INFO] Local ANPR not available ({e}). Using Cloud API only.")
+    detect_plate_local = None
+    HAS_LOCAL_ANPR = False
 from app.device.config import (
     DEFAULT_CAMERA_INDEX,
     ANPR_MODE,
@@ -17,7 +26,9 @@ from app.device.config import (
     API_UPDATE_EXIT,
     API_FORM_URL,
     API_KIOSK_URL,
-    AUTO_OPEN_FORM
+    AUTO_OPEN_FORM,
+    API_BASE_URL,
+    FORM_TIMEOUT
 )
 
 
@@ -216,7 +227,12 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
     import os
     
     # Open camera once
-    cap = cv2.VideoCapture(camera_index)
+    # Use CAP_DSHOW for faster startup on Windows
+    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        # Fallback if DSHOW fails
+        cap = cv2.VideoCapture(camera_index)
+        
     if not cap.isOpened():
         print("[ERROR] Camera not found. Please check camera connection.")
         return
@@ -259,11 +275,13 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                 print(f"\n[DETECTING] Initializing Plate Reader (Mode: {ANPR_MODE.upper()})...")
                 plate_number = None
                 
-                if ANPR_MODE in ["local", "hybrid"]:
+                if ANPR_MODE in ["local", "hybrid"] and HAS_LOCAL_ANPR:
                     plate_number = detect_plate_local(image_path)
+                elif ANPR_MODE == "local" and not HAS_LOCAL_ANPR:
+                    print("[WARNING] Local ANPR not available (EasyOCR/YOLO not installed). Falling back to Cloud API...")
                     
-                if not plate_number and ANPR_MODE in ["api", "hybrid"]:
-                    if ANPR_MODE == "hybrid":
+                if not plate_number and ANPR_MODE in ["api", "hybrid", "local"]:
+                    if ANPR_MODE == "hybrid" and HAS_LOCAL_ANPR:
                         print("[INFO] Fallback: Local OCR failed. Sending to Cloud API...")
                     plate_number = detect_plate_api(image_path)
                 
@@ -281,17 +299,49 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                 if should_pause:
                     print("[PAUSE] Camera released for ID scan in browser.")
                     print("[ACTION] Please complete the ID scanning in your browser window.")
-                    print("[ACTION] Once finished, return here and press ENTER to resume plate detection.")
+                    print("[WAITING] Waiting for form submission to complete...")
                     
                     cap.release()
                     cv2.destroyAllWindows()
                     
-                    # Wait for user to finish
-                    input("\n>>> Press ENTER to resume camera...")
+                    # Wait for form completion automatically
+                    import time
+                    start_wait = time.time()
+                    form_submitted = False
+                    
+                    while time.time() - start_wait < FORM_TIMEOUT:
+                        try:
+                            # Check backend if visitor details are filled
+                            check_url = f"{API_BASE_URL}/api/vehicle/{plate_number}"
+                            check_resp = requests.get(check_url, timeout=2)
+                            if check_resp.status_code == 200:
+                                data = check_resp.json()
+                                # Check the latest entry
+                                if data.get('entries') and len(data['entries']) > 0:
+                                    latest = data['entries'][0]
+                                    # If name or phone is filled, assume form is submitted
+                                    if latest.get('visitor_name') or latest.get('phone'):
+                                        print(f"\n[SUCCESS] Form submitted for {plate_number}!")
+                                        form_submitted = True
+                                        break
+                        except Exception:
+                            pass
+                        
+                        time.sleep(1) # Poll every 1 second for instant feel
+                        print(".", end="", flush=True)
+                    
+                    if not form_submitted:
+                        print("\n[TIMEOUT] Form not submitted within time limit.")
+                        input("\n>>> Press ENTER to resume camera manually...")
                     
                     # Restart camera
                     print("\n[RESUME] Re-initializing camera...")
-                    cap = cv2.VideoCapture(camera_index)
+                    # Use CAP_DSHOW for faster startup on Windows
+                    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+                    if not cap.isOpened():
+                        # Fallback if DSHOW fails
+                        cap = cv2.VideoCapture(camera_index)
+                        
                     if not cap.isOpened():
                         print("[ERROR] Failed to re-open camera. Please restart the script.")
                         return
