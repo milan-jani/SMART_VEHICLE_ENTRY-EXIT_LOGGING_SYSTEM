@@ -39,7 +39,7 @@ WORKDIR /app
 
 # Copy cloud requirements first (Docker caching)
 COPY requirements-cloud.txt .
-RUN pip install --no-cache-dir -r requirements-cloud.txt
+RUN pip install --no-cache-dir --retries 10 -r requirements-cloud.txt
 
 # Copy project code
 COPY . .
