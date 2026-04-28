@@ -30,9 +30,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxvidcore-dev \
     libx264-dev \
     libgtk2.0-dev \
-    libgtk-3-0 \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
+
+# Add GTK3 in a separate layer to avoid rebuilding the huge cache above
+RUN apt-get update && apt-get install -y libgtk-3-0 && rm -rf /var/lib/apt/lists/*
 
 # Tell pip to use piwheels for much faster installation on ARM
 ENV PIP_EXTRA_INDEX_URL=https://www.piwheels.org/simple
