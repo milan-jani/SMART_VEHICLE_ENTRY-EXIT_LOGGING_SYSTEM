@@ -18,6 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libqt5gui5 \
     libqt5test5 \
     libqt5core5a \
+    libwebp-dev \
+    libtiff5-dev \
+    libopenexr-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Tell pip to use piwheels for much faster installation on ARM
