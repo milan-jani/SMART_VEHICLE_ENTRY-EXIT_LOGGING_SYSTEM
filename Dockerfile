@@ -29,6 +29,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libv4l-dev \
     libxvidcore-dev \
     libx264-dev \
+    libgtk2.0-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Tell pip to use piwheels for much faster installation on ARM
