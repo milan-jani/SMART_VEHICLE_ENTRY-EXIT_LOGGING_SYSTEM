@@ -471,9 +471,12 @@ async def upload_id_card(file: UploadFile = File(...)):
     Handle ID card image uploads from the kiosk camera or file picker
     """
     try:
+        from datetime import datetime
+        date_str = datetime.now().strftime("%d-%m-%Y")
+        
         # Base directory for uploads
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        upload_dir = os.path.join(base_dir, "data", "id_cards")
+        upload_dir = os.path.join(base_dir, "data", "id_cards", date_str)
         os.makedirs(upload_dir, exist_ok=True)
         
         # Generate unique filename
@@ -489,7 +492,7 @@ async def upload_id_card(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
             
         # Return relative path for saving to database
-        rel_path = os.path.join("data", "id_cards", filename).replace("\\", "/")
+        rel_path = os.path.join("data", "id_cards", date_str, filename).replace("\\", "/")
         
         return {
             "status": "success", 

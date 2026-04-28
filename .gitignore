@@ -126,8 +126,13 @@ Thumbs.db
 data/photos/
 data/id_cards/
 data/sessions/
+data/temp/
 *.jpg
 *.png
 *.webp
 *.mp4
 !kiosk_design_screenshot_*.png
+
+# Legacy/Archive folders
+git_ANPR/
+archived_legacy_tests/
