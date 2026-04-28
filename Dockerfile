@@ -21,6 +21,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libwebp-dev \
     libtiff5-dev \
     libopenexr-dev \
+    libopenjp2-7-dev \
+    libpng-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libv4l-dev \
+    libxvidcore-dev \
+    libx264-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Tell pip to use piwheels for much faster installation on ARM
