@@ -5,12 +5,17 @@
 
 FROM python:3.11-slim-bookworm
 
-# System dependencies for OpenCV (headless)
+# System dependencies for OpenCV and Compiling
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    python3-dev \
     libopenblas-dev \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
+
+# Tell pip to use piwheels for much faster installation on ARM
+ENV PIP_EXTRA_INDEX_URL=https://www.piwheels.org/simple
 
 # Set working directory
 WORKDIR /app
