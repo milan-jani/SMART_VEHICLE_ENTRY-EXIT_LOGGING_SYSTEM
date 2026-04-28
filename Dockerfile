@@ -12,6 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopenblas-dev \
     libgl1 \
     libglib2.0-0 \
+    libhdf5-dev \
+    libhdf5-serial-dev \
+    libatlas-base-dev \
+    libqt5gui5 \
+    libqt5test5 \
+    libqt5core5a \
     && rm -rf /var/lib/apt/lists/*
 
 # Tell pip to use piwheels for much faster installation on ARM
