@@ -676,10 +676,119 @@ async function deleteWorker(plate) {
     }
 }
 
+// Auto-refresh logic
+let lastCheckedEntryCount = 0;
+
 /**
- * Auto-refresh dashboard every 30 seconds
+ * Load dashboard data (statistics and vehicles)
  */
-setInterval(loadDashboard, 30000);
+async function loadDashboard() {
+    try { 
+        // Fetch vehicles
+        const vehiclesResponse = await fetch(`${API_BASE}/vehicles`);
+        const vehiclesData = await vehiclesResponse.json();
+        
+        if (vehiclesData.status === 'success') {
+            const newVehicles = vehiclesData.vehicles;
+            
+            // CHECK FOR NEW VISITOR (Smart Alert)
+            if (newVehicles.length > 0) {
+                const latest = newVehicles[0];
+                const isNewVisitor = latest.visitor_type === 'visitor' && (!latest.visitor_name || latest.visitor_name === "");
+                
+                if (isNewVisitor) {
+                    showVisitorAlert(latest.vehicle_no);
+                } else {
+                    hideVisitorAlert();
+                }
+            }
+
+            allVehicles = newVehicles;
+            updateVehiclesTable(allVehicles);
+        }
+        
+        // Fetch statistics (only every few refreshes to save CPU)
+        const statsResponse = await fetch(`${API_BASE}/stats`);
+        const statsData = await statsResponse.json();
+        if (statsData.status === 'success') {
+            updateStatistics(statsData.statistics);
+        }
+        
+        document.getElementById('last-updated').textContent = new Date().toLocaleTimeString('en-IN');
+        
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
+    }
+}
+
+/**
+ * Show a pulsing alert for a new visitor
+ */
+function showVisitorAlert(plate) {
+    let alertBanner = document.getElementById('visitor-alert-banner');
+    if (!alertBanner) {
+        alertBanner = document.createElement('div');
+        alertBanner.id = 'visitor-alert-banner';
+        alertBanner.className = 'visitor-alert';
+        document.body.prepend(alertBanner);
+    }
+    
+    alertBanner.innerHTML = `
+        <div class="alert-content">
+            <i class="fas fa-bell"></i>
+            <span><strong>NEW VISITOR:</strong> Plate ${plate} detected!</span>
+            <a href="/api/kiosk?plate=${plate}" target="_blank" class="btn-alert">OPEN FORM</a>
+        </div>
+    `;
+    alertBanner.style.display = 'block';
+}
+
+function hideVisitorAlert() {
+    const alertBanner = document.getElementById('visitor-alert-banner');
+    if (alertBanner) alertBanner.style.display = 'none';
+}
+
+/**
+ * Add CSS for alerts
+ */
+const alertStyle = document.createElement('style');
+alertStyle.textContent = `
+    .visitor-alert {
+        background: #10b981;
+        color: white;
+        padding: 15px;
+        text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        animation: pulseAlert 2s infinite;
+    }
+    .alert-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+    }
+    .btn-alert {
+        background: white;
+        color: #10b981;
+        padding: 5px 15px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 0.8rem;
+    }
+    @keyframes pulseAlert {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
+`;
+document.head.appendChild(alertStyle);
+
+// Auto-refresh every 5 seconds for "Real-time" feel
+setInterval(loadDashboard, 5000);
 
 // Initialize theme and load dashboard on page load
 window.addEventListener('DOMContentLoaded', () => {
