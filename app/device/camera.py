@@ -45,12 +45,10 @@ def capture_with_preview(camera_index: int = 0) -> Tuple[Optional[str], Optional
             from datetime import datetime
             
             date_str = datetime.now().strftime("%d-%m-%Y")
-            photo_dir = os.path.join(
-                os.path.dirname(__file__),
-                "..", "..",
-                "data", "photos",
-                date_str
-            )
+            
+            # Use absolute path relative to project root
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            photo_dir = os.path.join(base_dir, "data", "photos", date_str)
             os.makedirs(photo_dir, exist_ok=True)
             
             filename = os.path.join(photo_dir, f"capture_{int(time.time())}.jpg")
