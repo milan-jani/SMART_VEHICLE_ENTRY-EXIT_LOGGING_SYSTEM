@@ -21,6 +21,10 @@ def capture_with_preview(camera_index: int = 0) -> Tuple[Optional[str], Optional
     if not cap.isOpened():
         raise Exception("[ERROR] Camera not found.")
 
+    # Set Resolution to 720p (1280x720) for better quality
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
     print("[INFO] Press 'c' to capture photo")
     print("Press 'q' to quit")
 

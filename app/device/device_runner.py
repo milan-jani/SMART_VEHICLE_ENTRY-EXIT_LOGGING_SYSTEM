@@ -228,14 +228,15 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
     
     # Open camera once
     # Use CAP_DSHOW for faster startup on Windows
-    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
-    if not cap.isOpened():
-        # Fallback if DSHOW fails
-        cap = cv2.VideoCapture(camera_index)
+    cap = cv2.VideoCapture(camera_index)
         
     if not cap.isOpened():
         print("[ERROR] Camera not found. Please check camera connection.")
         return
+
+    # Set Resolution to 720p (1280x720) for better quality
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     
     print("[SUCCESS] Camera initialized successfully!")
     print("Live preview starting...\n")
@@ -259,11 +260,13 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                 print("\n" + "-"*60)
                 print("[CAPTURE] Capturing image...")
                 
-                # Save image to photos directory
+                # Save image to photos directory with date subfolder
+                date_str = datetime.now().strftime("%d-%m-%Y")
                 photo_dir = os.path.join(
                     os.path.dirname(__file__),
                     "..", "..",
-                    "data", "photos"
+                    "data", "photos",
+                    date_str
                 )
                 os.makedirs(photo_dir, exist_ok=True)
                 image_path = os.path.join(photo_dir, f"capture_{int(time.time())}.jpg")
