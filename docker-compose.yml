@@ -25,9 +25,11 @@ services:
       - ./data:/app/data
       - ./.env:/app/.env:ro
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - /home/milanjani/.Xauthority:/tmp/.Xauthority
     environment:
       - API_BASE_URL=http://localhost:8000
       - DISPLAY=:0
+      - XAUTHORITY=/tmp/.Xauthority
     devices:
       - /dev/video0:/dev/video0
       - /dev/video1:/dev/video1
