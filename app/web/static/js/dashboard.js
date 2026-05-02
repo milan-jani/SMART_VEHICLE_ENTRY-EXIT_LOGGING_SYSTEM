@@ -730,17 +730,22 @@ function showVisitorAlert(plate) {
         alertBanner = document.createElement('div');
         alertBanner.id = 'visitor-alert-banner';
         alertBanner.className = 'visitor-alert';
-        document.body.prepend(alertBanner);
+        document.body.appendChild(alertBanner);
     }
     
     alertBanner.innerHTML = `
-        <div class="alert-content">
-            <i class="fas fa-bell"></i>
-            <span><strong>NEW VISITOR:</strong> Plate ${plate} detected!</span>
-            <a href="/api/kiosk?plate=${plate}" target="_blank" class="btn-alert">OPEN FORM</a>
+        <div class="alert-header">
+            <i class="fas fa-car-side"></i>
+            New Vehicle Detected
         </div>
+        <div class="alert-body">
+            Vehicle <strong>${plate}</strong> has arrived. Visitor registration is pending.
+        </div>
+        <a href="/api/kiosk?plate=${plate}" target="_blank" class="btn-alert">
+            <i class="fas fa-external-link-alt"></i> Open Registration Form
+        </a>
     `;
-    alertBanner.style.display = 'block';
+    alertBanner.style.display = 'flex';
 }
 
 function hideVisitorAlert() {
@@ -754,35 +759,71 @@ function hideVisitorAlert() {
 const alertStyle = document.createElement('style');
 alertStyle.textContent = `
     .visitor-alert {
-        background: #10b981;
-        color: white;
-        padding: 15px;
-        text-align: center;
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        animation: pulseAlert 2s infinite;
+        background: white;
+        padding: 16px 20px;
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        z-index: 9999;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        border-left: 6px solid #10b981;
+        animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        max-width: 350px;
     }
-    .alert-content {
+    body.dark-mode .visitor-alert {
+        background: #1e293b;
+        color: #f1f5f9;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+    .alert-header {
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 15px;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #1e293b;
+    }
+    body.dark-mode .alert-header {
+        color: #f1f5f9;
+    }
+    .alert-header i {
+        color: #10b981;
+        font-size: 1.2rem;
+    }
+    .alert-body {
+        font-size: 0.95rem;
+        color: #64748b;
+        line-height: 1.4;
+    }
+    body.dark-mode .alert-body {
+        color: #cbd5e1;
     }
     .btn-alert {
-        background: white;
-        color: #10b981;
-        padding: 5px 15px;
-        border-radius: 5px;
+        background: #10b981;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
         text-decoration: none;
-        font-weight: bold;
-        font-size: 0.8rem;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-align: center;
+        transition: all 0.2s;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
     }
-    @keyframes pulseAlert {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.02); }
-        100% { transform: scale(1); }
+    .btn-alert:hover {
+        background: #059669;
+        transform: translateY(-2px);
+    }
+    @keyframes slideInRight {
+        0% { transform: translateX(120%); opacity: 0; }
+        100% { transform: translateX(0); opacity: 1; }
     }
 `;
 document.head.appendChild(alertStyle);

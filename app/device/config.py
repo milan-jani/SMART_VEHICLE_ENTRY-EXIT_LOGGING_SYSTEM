@@ -12,7 +12,7 @@ elif os.path.exists(".env.example"):
     load_dotenv(".env.example")
 
 # Camera Configuration
-DEFAULT_CAMERA_INDEX = 0  # Change this: 0 = laptop camera, 1 = external camera, etc.
+DEFAULT_CAMERA_INDEX = 1 # Change this: 0 = laptop camera, 1 = external camera, etc.
 CAPTURE_KEY = 'c'  # Key to press for capture
 QUIT_KEY = 'q'     # Key to press to quit
 

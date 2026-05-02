@@ -88,26 +88,78 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
     print("HYBRID LOGGING SYSTEM - CONTINUOUS MONITORING")
     print("="*60)
     
-    cap = cv2.VideoCapture(camera_index)
+    # Use DirectShow backend on Windows, it often fixes MSMF errors with external webcams
+    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
     if not cap.isOpened():
-        print("[ERROR] Camera not found!")
-        return
+        print(f"[ERROR] Camera {camera_index} not found! Trying default camera 0...")
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        if not cap.isOpened():
+            print("[ERROR] No camera could be opened!")
+            return
 
-    # HD Resolution
+    # HD Resolution (Camera will auto-adjust to its nearest supported resolution if 720p is unavailable)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     
     print("[SUCCESS] Camera ready. Press 'c' to capture, 'q' to quit.")
 
+    failed_frames = 0
     try:
         while True:
             ret, frame = cap.read()
-            if not ret: continue
+            if not ret:
+                failed_frames += 1
+                if failed_frames > 30:
+                    print("[ERROR] Lost connection to camera (too many failed frames).")
+                    break
+                time.sleep(0.1)
+                continue
+                
+            failed_frames = 0 # Reset on success
             
             cv2.imshow("Smart Entry System", frame)
             key = cv2.waitKey(1) & 0xFF
             
             if key == ord('c'):
+                print("\n[CAPTURE] Starting 3 second countdown...")
+                
+                countdown_start = time.time()
+                capture_frame = None
+                
+                while True:
+                    ret, current_frame = cap.read()
+                    if not ret: continue
+                    
+                    elapsed = time.time() - countdown_start
+                    remaining = 3 - int(elapsed)
+                    
+                    if remaining <= 0:
+                        capture_frame = current_frame.copy()
+                        break
+                    
+                    # Draw a solid rectangle and counter on the top right corner
+                    display_frame = current_frame.copy()
+                    h, w, _ = display_frame.shape
+                    
+                    rect_w, rect_h = 100, 100
+                    top_x, top_y = w - rect_w - 20, 20
+                    bottom_x, bottom_y = w - 20, 120
+                    
+                    # Solid primary color (BGR format: ~Teal)
+                    cv2.rectangle(display_frame, (top_x, top_y), (bottom_x, bottom_y), (136, 148, 13), -1)
+                    
+                    # Add countdown text
+                    text = str(remaining)
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    text_size = cv2.getTextSize(text, font, 2.5, 5)[0]
+                    text_x = top_x + (rect_w - text_size[0]) // 2
+                    text_y = top_y + (rect_h + text_size[1]) // 2
+                    
+                    cv2.putText(display_frame, text, (text_x, text_y), font, 2.5, (255, 255, 255), 5, cv2.LINE_AA)
+                    
+                    cv2.imshow("Smart Entry System", display_frame)
+                    cv2.waitKey(1)
+                    
                 print("\n[CAPTURE] Processing...")
                 
                 # Setup Date Folder
@@ -117,7 +169,7 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                 os.makedirs(photo_dir, exist_ok=True)
                 
                 image_path = os.path.join(photo_dir, f"capture_{int(time.time())}.jpg")
-                cv2.imwrite(image_path, frame)
+                cv2.imwrite(image_path, capture_frame)
                 
                 # Detect Plate
                 print("[DETECTING] Reading Plate...")
@@ -153,14 +205,17 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                         print(".", end="", flush=True)
                     
                     print("\n[RESUME] Re-starting camera...")
-                    cap = cv2.VideoCapture(camera_index)
+                    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+                    if not cap.isOpened():
+                        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
             elif key == ord('q'):
                 break
     finally:
-        cap.release()
+        if cap:
+            cap.release()
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":

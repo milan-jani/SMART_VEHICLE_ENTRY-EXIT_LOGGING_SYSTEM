@@ -126,7 +126,7 @@
                             <label for="phone">Phone Number <span class="required">*</span></label>
                             <div class="input-wrapper">
                                 <i class="fas fa-mobile-screen input-icon"></i>
-                                <input type="tel" id="phone" name="phone" placeholder="10-digit mobile number" pattern="[0-9]{10}" inputmode="numeric" required>
+                                <input type="tel" id="phone" name="phone" placeholder="Tap to enter 10-digit mobile number" pattern="[0-9]{10}" inputmode="none" required style="cursor: pointer;" onclick="openNumpad('phone')">
                             </div>
                         </div>
                     </div>
@@ -269,10 +269,7 @@
                 <!-- Video stream container -->
                 <div id="video-container" class="video-container">
                     <video id="camera-video" autoplay playsinline></video>
-                    <div class="camera-guideline" id="camera-guideline">
-                        <div class="frame-corners"></div>
-                        <p class="guide-text">Align ID Card within frame</p>
-                    </div>
+                    <div id="camera-counter" class="camera-counter hidden">3</div>
                     <canvas id="camera-canvas" class="hidden"></canvas>
                 </div>
                 
@@ -323,6 +320,36 @@
         </div>
     </div>
 
-    <script src="/static/js/kiosk.js?v=1.1"></script>
+    <!-- Virtual Numpad Overlay -->
+    <div id="numpad-overlay" class="modal-overlay hidden">
+        <div class="numpad-content">
+            <div class="numpad-header">
+                <h3>Enter Phone Number</h3>
+                <button type="button" class="btn-close" onclick="closeNumpad()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="numpad-display-container">
+                <input type="text" id="numpad-display" readonly>
+            </div>
+            <div class="numpad-grid">
+                <button type="button" class="numpad-btn" onclick="numpadPress('1')">1</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('2')">2</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('3')">3</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('4')">4</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('5')">5</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('6')">6</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('7')">7</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('8')">8</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('9')">9</button>
+                <button type="button" class="numpad-btn btn-danger" onclick="numpadClear()">C</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('0')">0</button>
+                <button type="button" class="numpad-btn btn-warning" onclick="numpadBackspace()"><i class="fas fa-backspace"></i></button>
+            </div>
+            <div class="numpad-footer">
+                <button type="button" class="btn-primary numpad-done" onclick="numpadDone()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/kiosk.js?v=1.4"></script>
 </body>
 </html>

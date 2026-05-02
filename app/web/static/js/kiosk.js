@@ -239,7 +239,35 @@ fileUpload.addEventListener('change', function() {
     }
 });
 
+let isCountingDown = false;
+
 function takeSnapshot() {
+    if (!isCameraActive || isCountingDown) return;
+    
+    isCountingDown = true;
+    btnSnap.disabled = true;
+    
+    const counterEl = document.getElementById('camera-counter');
+    let count = 3;
+    
+    counterEl.textContent = count;
+    counterEl.classList.remove('hidden');
+    
+    const countInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            counterEl.textContent = count;
+        } else {
+            clearInterval(countInterval);
+            counterEl.classList.add('hidden');
+            isCountingDown = false;
+            btnSnap.disabled = false;
+            executeSnapshot();
+        }
+    }, 1000);
+}
+
+function executeSnapshot() {
     if (!isCameraActive) return;
     
     canvas.width = video.videoWidth;
@@ -506,3 +534,68 @@ form.addEventListener('submit', async function(e) {
 function closeStatusOverlay() {
     statusOverlay.classList.add('hidden');
 }
+
+// --- Virtual Numpad Logic ---
+let currentTargetInputId = null;
+
+function openNumpad(inputId) {
+    currentTargetInputId = inputId;
+    const targetInput = document.getElementById(inputId);
+    const numpadDisplay = document.getElementById('numpad-display');
+    numpadDisplay.value = targetInput.value;
+    document.getElementById('numpad-overlay').classList.remove('hidden');
+}
+
+function closeNumpad() {
+    document.getElementById('numpad-overlay').classList.add('hidden');
+    currentTargetInputId = null;
+}
+
+function numpadPress(num) {
+    const display = document.getElementById('numpad-display');
+    // For phone numbers, limit to 10 digits
+    if (currentTargetInputId === 'phone' && display.value.length >= 10) return;
+    display.value += num;
+}
+
+function numpadBackspace() {
+    const display = document.getElementById('numpad-display');
+    display.value = display.value.slice(0, -1);
+}
+
+function numpadClear() {
+    document.getElementById('numpad-display').value = '';
+}
+
+function numpadDone() {
+    if (currentTargetInputId) {
+        const targetInput = document.getElementById(currentTargetInputId);
+        targetInput.value = document.getElementById('numpad-display').value;
+        // Trigger input event for any auto-formatting or validation logic attached
+        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        // Also clear custom validity if phone is length 10
+        if (currentTargetInputId === 'phone') {
+            if(targetInput.value.length === 10) {
+                targetInput.setCustomValidity('');
+            }
+        }
+    }
+    closeNumpad();
+}
+
+// Support physical keyboard when Virtual Numpad is open
+document.addEventListener('keydown', function(e) {
+    if (!currentTargetInputId) return; // Numpad is not open
+    
+    // Prevent default form submission if enter is pressed
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        numpadDone();
+    } else if (e.key === 'Escape') {
+        closeNumpad();
+    } else if (e.key === 'Backspace') {
+        numpadBackspace();
+    } else if (/^[0-9]$/.test(e.key)) {
+        numpadPress(e.key);
+    }
+});

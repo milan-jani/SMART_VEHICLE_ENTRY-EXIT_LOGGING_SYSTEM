@@ -553,52 +553,29 @@ video {
     object-fit: cover;
 }
 
-.camera-guideline {
+.camera-counter {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10;
+    animation: counterPop 1s ease-in-out infinite;
 }
 
-.frame-corners {
-    width: 80%;
-    height: 60%;
-    border: 2px solid rgba(255, 255, 255, 0.4);
-    position: relative;
-}
-
-.frame-corners::before, .frame-corners::after {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    border-color: #10b981;
-    border-style: solid;
-}
-
-.frame-corners::before {
-    top: -2px; left: -2px;
-    border-width: 4px 0 0 4px;
-}
-
-.frame-corners::after {
-    bottom: -2px; right: -2px;
-    border-width: 0 4px 4px 0;
-}
-
-.guide-text {
-    color: white;
-    background: rgba(0,0,0,0.5);
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    margin-top: 16px;
+@keyframes counterPop {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 .camera-error {
@@ -801,7 +778,91 @@ input.auto-filled, select.auto-filled, textarea.auto-filled {
         padding-right: 20px;
     }
     
-    body {
-        padding: 12px;
-    }
+}
+
+/* Virtual Numpad */
+.numpad-content {
+    background: var(--surface);
+    width: 100%;
+    max-width: 350px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin-bottom: 20px;
+}
+
+.numpad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.numpad-display-container {
+    padding: 20px;
+    background: var(--surface-low);
+}
+
+#numpad-display {
+    width: 100%;
+    font-size: 2.2rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 3px;
+    border: none;
+    background: transparent;
+    color: var(--text-main);
+    outline: none;
+}
+
+.numpad-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 24px;
+}
+
+.numpad-btn {
+    background: var(--surface-low);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 18px 0;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+    touch-action: manipulation; /* Optimizes for touch devices */
+}
+
+.numpad-btn:active {
+    background: var(--border);
+    transform: scale(0.95);
+}
+
+.numpad-btn.btn-danger {
+    color: var(--error);
+    background: var(--error-bg);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.numpad-btn.btn-warning {
+    color: #f59e0b;
+    background: #fef3c7;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.numpad-footer {
+    padding: 16px 24px 24px;
+    border-top: 1px solid var(--border);
+}
+
+.numpad-done {
+    width: 100%;
+    padding: 16px;
+    font-size: 1.2rem;
+    justify-content: center;
 }
