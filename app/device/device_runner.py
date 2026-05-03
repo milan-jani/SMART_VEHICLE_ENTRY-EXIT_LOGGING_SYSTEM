@@ -4,14 +4,14 @@ import time
 import requests
 import json
 from datetime import datetime
-from config import (
+from .config import (
     DEFAULT_CAMERA_INDEX, 
     CAPTURE_KEY, 
     QUIT_KEY, 
     API_BASE_URL,
     ANPR_MODE
 )
-from anpr import detect_plate
+from .anpr import detect_plate
 
 def process_vehicle(plate_number, image_path):
     """Sends detection to backend and waits for registration."""
