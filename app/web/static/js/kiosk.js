@@ -1,9 +1,8 @@
 /**
- * Kiosk Form Logic - Complete Version (Polling + ID Capture)
+ * Kiosk Form Logic - Final Production Version
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("[KIOSK] Initializing Complete Logic...");
     initChips();
     initIDTypeLogic();
     startInactivityTimer();
@@ -22,8 +21,17 @@ function startStandbyPolling() {
             const data = await response.json();
             if (data.status === 'success' && data.vehicles && data.vehicles.length > 0) {
                 const latest = data.vehicles[0];
+                
+                // 1. Check if it's pending
                 const isPending = !latest.visitor_name || latest.visitor_name.trim() === "" || latest.visitor_name.toLowerCase() === "pending";
-                if (isPending) {
+                
+                // 2. Check if it's RECENT (within last 60 seconds)
+                const entryTime = new Date(latest.in_time).getTime();
+                const now = new Date().getTime();
+                const isRecent = (now - entryTime) < 60000; // 60 seconds
+
+                if (isPending && isRecent) {
+                    console.log(`[TRIGGER] New detection: ${latest.vehicle_no}`);
                     clearInterval(pollingInterval);
                     window.location.replace(`/api/kiosk?plate=${latest.vehicle_no}`);
                 }
@@ -32,17 +40,15 @@ function startStandbyPolling() {
     }, 3000);
 }
 
-// --- ID Capture Modal Logic ---
+// --- ID Capture & OCR ---
 let currentCaptureSide = ''; 
 let isCameraActive = false;
 let videoStream = null;
 
 function openCameraModal(side) {
     currentCaptureSide = side;
-    const modal = document.getElementById('camera-modal');
-    const modalTitle = document.getElementById('modal-title');
-    modalTitle.textContent = side === 'front' ? 'Capture Front of ID' : 'Capture Back of ID';
-    modal.classList.remove('hidden');
+    document.getElementById('modal-title').textContent = side === 'front' ? 'Capture Front of ID' : 'Capture Back of ID';
+    document.getElementById('camera-modal').classList.remove('hidden');
     initCamera();
 }
 
@@ -58,10 +64,7 @@ async function initCamera() {
         videoStream = stream;
         video.srcObject = stream;
         isCameraActive = true;
-    } catch (err) {
-        console.error("Camera Error:", err);
-        alert("Camera not available. Please use 'Upload' fallback.");
-    }
+    } catch (err) { alert("Camera Error: " + err); }
 }
 
 function stopCamera() {
@@ -91,8 +94,39 @@ async function uploadFileToAPI(file) {
         if (data.status === 'success') {
             updateCaptureBox(currentCaptureSide, data.file_path);
             closeCameraModal();
+            // START OCR PROCESS
+            processOCR(data.file_path, currentCaptureSide);
         }
     } catch (err) { alert("Upload failed"); }
+}
+
+async function processOCR(filePath, side) {
+    const ocrStatus = document.getElementById(`ocr-status-${side}`);
+    if (ocrStatus) {
+        ocrStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
+        ocrStatus.classList.remove('hidden');
+    }
+    
+    try {
+        const response = await fetch('/api/id-ocr', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ image_path: filePath, side: side })
+        });
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            if (ocrStatus) ocrStatus.innerHTML = '<i class="fas fa-check"></i> Done';
+            const d = result.data;
+            if (d.name) document.getElementById('visitor_name').value = d.name;
+            if (d.id_number) document.getElementById('id_number').value = d.id_number;
+            if (d.address) document.getElementById('address').value = d.address;
+        } else {
+            if (ocrStatus) ocrStatus.innerHTML = '<i class="fas fa-times"></i> Scan Failed';
+        }
+    } catch (err) {
+        if (ocrStatus) ocrStatus.innerHTML = '<i class="fas fa-times"></i> Error';
+    }
 }
 
 function updateCaptureBox(side, filePath) {
@@ -103,69 +137,51 @@ function updateCaptureBox(side, filePath) {
     document.getElementById(`id_card_${side}_path`).value = filePath;
 }
 
-// --- Chip/Pill Selection ---
+// UI Helpers
 function initChips() {
-    setupChipGroup('purpose-chips', 'purpose');
-    setupChipGroup('vehicle-type-chips', 'vehicle_type');
-    setupChipGroup('duration-chips', 'expected_duration');
-}
-
-function setupChipGroup(groupId, inputId) {
-    const group = document.getElementById(groupId);
-    if (!group) return;
-    const input = document.getElementById(inputId);
-    const chips = group.querySelectorAll('.chip');
-    chips.forEach(chip => {
-        chip.addEventListener('click', () => {
-            chips.forEach(c => c.classList.remove('active'));
-            chip.classList.add('active');
-            input.value = chip.dataset.value;
+    ['purpose-chips', 'vehicle-type-chips', 'duration-chips'].forEach(id => {
+        const group = document.getElementById(id);
+        if (!group) return;
+        const inputId = id.split('-')[0] + (id.includes('duration') ? '_expected' : '');
+        const input = document.getElementById(id.replace('-chips', '').replace('duration', 'expected_duration'));
+        group.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                input.value = chip.dataset.value;
+            });
         });
     });
 }
 
 function initIDTypeLogic() {
-    const idType = document.getElementById('id_type');
-    if (!idType) return;
-    idType.addEventListener('change', function() {
-        const input = document.getElementById('id_number');
-        input.value = '';
-        if (this.value === 'aadhaar') input.placeholder = "12 Digit Aadhaar";
-        else input.placeholder = "ID Number";
+    const s = document.getElementById('id_type');
+    if (s) s.addEventListener('change', function() {
+        document.getElementById('id_number').value = '';
     });
 }
 
 function startInactivityTimer() {
-    let timer;
-    const reset = () => {
-        clearTimeout(timer);
-        timer = setTimeout(() => {
-            if (new URLSearchParams(window.location.search).has('plate')) window.location.href = '/api/kiosk';
-        }, 120000);
-    };
-    ['mousedown', 'mousemove', 'keypress'].forEach(e => document.addEventListener(e, reset));
-    reset();
+    let t;
+    const r = () => { clearTimeout(t); t = setTimeout(() => { if (window.location.search.includes('plate')) window.location.href='/api/kiosk'; }, 180000); };
+    ['mousedown', 'mousemove', 'keypress'].forEach(e => document.addEventListener(e, r));
+    r();
 }
 
-// Form Submit
 document.getElementById('kiosk-form').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const statusOverlay = document.getElementById('status-overlay');
-    statusOverlay.classList.remove('hidden');
-    const data = Object.fromEntries(new FormData(this).entries());
+    const overlay = document.getElementById('status-overlay');
+    overlay.classList.remove('hidden');
     try {
         const resp = await fetch('/api/kiosk', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data)
+            body: JSON.stringify(Object.fromEntries(new FormData(this).entries()))
         });
         if (resp.ok) {
             document.getElementById('loading-spinner').classList.add('hidden');
             document.getElementById('success-message').classList.remove('hidden');
-            setTimeout(() => { window.location.href = '/api/kiosk'; }, 3000);
-        } else {
-            statusOverlay.classList.add('hidden');
-            alert("Error saving data");
-        }
-    } catch (err) { statusOverlay.classList.add('hidden'); }
+            setTimeout(() => { window.location.href = '/api/kiosk'; }, 2000);
+        } else { overlay.classList.add('hidden'); alert("Save failed"); }
+    } catch (err) { overlay.classList.add('hidden'); }
 });
