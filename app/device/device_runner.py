@@ -9,6 +9,12 @@ import time
 from datetime import datetime
 from typing import Optional
 
+# Setup base directory for imports
+import sys
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
 from app.device.camera import capture_with_preview
 from app.device.anpr import detect_plate_from_image as detect_plate_api
 
@@ -88,16 +94,32 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
     print("HYBRID LOGGING SYSTEM - CONTINUOUS MONITORING")
     print("="*60)
     
-    # Use DirectShow backend on Windows, it often fixes MSMF errors with external webcams
-    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
-    if not cap.isOpened():
-        print(f"[ERROR] Camera {camera_index} not found! Trying default camera 0...")
-        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    # AGGRESSIVE SEARCH FOR CAMERA (Compatible with Linux/Pi)
+    cap = None
+    indices = [camera_index, 0, 1, 2]
+    
+    for idx in indices:
+        print(f"[INFO] Attempting to open Camera {idx}...")
+        # Use V4L2 for Pi stability
+        cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
         if not cap.isOpened():
-            print("[ERROR] No camera could be opened!")
-            return
+            # Fallback to default
+            cap = cv2.VideoCapture(idx)
+            
+        if cap.isOpened():
+            print(f"[SUCCESS] Camera found at index {idx}")
+            camera_index = idx
+            break
+            
+    if not cap or not cap.isOpened():
+        print("[ERROR] NO CAMERA FOUND ANYWHERE! Check hardware connection.")
+        return
 
-    # HD Resolution (Camera will auto-adjust to its nearest supported resolution if 720p is unavailable)
+    # Set basic resolution first to avoid power surge crashes
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    
+    # Try to set HD if hardware supports it
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     
@@ -109,72 +131,30 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
             ret, frame = cap.read()
             if not ret:
                 failed_frames += 1
-                if failed_frames > 30:
-                    print("[ERROR] Lost connection to camera (too many failed frames).")
+                if failed_frames > 20:
+                    print("[ERROR] Lost connection to camera.")
                     break
-                time.sleep(0.1)
                 continue
-                
-            failed_frames = 0 # Reset on success
             
+            failed_frames = 0
             cv2.imshow("Smart Entry System", frame)
             key = cv2.waitKey(1) & 0xFF
             
             if key == ord('c'):
-                print("\n[CAPTURE] Starting 3 second countdown...")
-                
-                countdown_start = time.time()
-                capture_frame = None
-                
-                while True:
-                    ret, current_frame = cap.read()
-                    if not ret: continue
-                    
-                    elapsed = time.time() - countdown_start
-                    remaining = 3 - int(elapsed)
-                    
-                    if remaining <= 0:
-                        capture_frame = current_frame.copy()
-                        break
-                    
-                    # Draw a solid rectangle and counter on the top right corner
-                    display_frame = current_frame.copy()
-                    h, w, _ = display_frame.shape
-                    
-                    rect_w, rect_h = 100, 100
-                    top_x, top_y = w - rect_w - 20, 20
-                    bottom_x, bottom_y = w - 20, 120
-                    
-                    # Solid primary color (BGR format: ~Teal)
-                    cv2.rectangle(display_frame, (top_x, top_y), (bottom_x, bottom_y), (136, 148, 13), -1)
-                    
-                    # Add countdown text
-                    text = str(remaining)
-                    font = cv2.FONT_HERSHEY_SIMPLEX
-                    text_size = cv2.getTextSize(text, font, 2.5, 5)[0]
-                    text_x = top_x + (rect_w - text_size[0]) // 2
-                    text_y = top_y + (rect_h + text_size[1]) // 2
-                    
-                    cv2.putText(display_frame, text, (text_x, text_y), font, 2.5, (255, 255, 255), 5, cv2.LINE_AA)
-                    
-                    cv2.imshow("Smart Entry System", display_frame)
-                    cv2.waitKey(1)
-                    
                 print("\n[CAPTURE] Processing...")
                 
                 # Setup Date Folder
                 date_str = datetime.now().strftime("%d-%m-%Y")
-                base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-                photo_dir = os.path.join(base_dir, "data", "photos", date_str)
+                photo_dir = os.path.join(project_root, "data", "photos", date_str)
                 os.makedirs(photo_dir, exist_ok=True)
                 
                 image_path = os.path.join(photo_dir, f"capture_{int(time.time())}.jpg")
-                cv2.imwrite(image_path, capture_frame)
+                cv2.imwrite(image_path, frame)
                 
                 # Detect Plate
                 print("[DETECTING] Reading Plate...")
                 plate_number = None
-                if HAS_LOCAL_ANPR:
+                if HAS_LOCAL_ANPR and detect_plate_local:
                     plate_number = detect_plate_local(image_path)
                 if not plate_number:
                     plate_number = detect_plate_api(image_path)
@@ -184,54 +164,38 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                     continue
                 
                 if process_vehicle(plate_number, image_path):
-                    # Pause for form if AUTO_OPEN is True
-                    print("[PAUSE] Camera paused. Resume in 30s or after submission.")
+                    print("[PAUSE] Camera paused. Resume after form submission.")
                     cap.release()
                     cv2.destroyAllWindows()
                     
-                    # Wait logic
+                    # Wait logic (indefinite or long timeout)
                     start_wait = time.time()
-                    while time.time() - start_wait < FORM_TIMEOUT:
+                    while time.time() - start_wait < 300: # 5 min timeout
                         try:
                             # Poll for submission
                             check_resp = requests.get(f"{API_BASE_URL}/api/vehicle/{plate_number}", timeout=2)
                             if check_resp.status_code == 200:
                                 data = check_resp.json()
-                                if data.get('entries') and (data['entries'][0].get('visitor_name')):
-                                    print("\n[SUCCESS] Form submitted!")
-                                    break
+                                # Logic to check if visitor data is updated in DB
+                                if data.get('entries') and len(data['entries']) > 0:
+                                    if data['entries'][0].get('visitor_name'):
+                                        print("\n[SUCCESS] Form submission detected!")
+                                        break
                         except: pass
                         time.sleep(2)
                         print(".", end="", flush=True)
                     
                     print("\n[RESUME] Re-starting camera...")
-                    # Use V4L2 backend for Linux/Pi stability
+                    # Re-initialize same way
                     cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
-                    
-                    if not cap.isOpened():
-                        # Fallback to default backend if V4L2 fails
-                        cap = cv2.VideoCapture(camera_index)
-                        
-                    if not cap.isOpened():
-                        print(f"[ERROR] Camera not found at index {camera_index}!")
-                        return
-
-                    # Try setting HD, but don't crash if it fails
+                    if not cap.isOpened(): cap = cv2.VideoCapture(camera_index)
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-                    
-                    # Check if we actually got a frame
-                    ret, test_frame = cap.read()
-                    if not ret:
-                        print("[WARNING] Could not read frame. Trying lower resolution...")
-                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
             elif key == ord('q'):
                 break
     finally:
-        if cap:
-            cap.release()
+        if cap: cap.release()
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
