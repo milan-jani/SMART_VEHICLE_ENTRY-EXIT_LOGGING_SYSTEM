@@ -583,19 +583,45 @@ function numpadDone() {
     closeNumpad();
 }
 
-// Support physical keyboard when Virtual Numpad is open
-document.addEventListener('keydown', function(e) {
-    if (!currentTargetInputId) return; // Numpad is not open
+// --- Polling for Standby Mode ---
+let pollingInterval;
+
+function startStandbyPolling() {
+    // Only poll if we are on the base kiosk page (no plate in URL)
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasPlate = urlParams.has('plate');
+    const standbyOverlay = document.getElementById('standby-overlay');
     
-    // Prevent default form submission if enter is pressed
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        numpadDone();
-    } else if (e.key === 'Escape') {
-        closeNumpad();
-    } else if (e.key === 'Backspace') {
-        numpadBackspace();
-    } else if (/^[0-9]$/.test(e.key)) {
-        numpadPress(e.key);
+    if (!hasPlate && standbyOverlay && !standbyOverlay.classList.contains('hidden')) {
+        console.log("[POLLING] Kiosk is in Standby. Monitoring for vehicles...");
+        
+        pollingInterval = setInterval(async () => {
+            try {
+                const response = await fetch('/api/vehicles');
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.vehicles.length > 0) {
+                    // Check the latest vehicle
+                    const latest = data.vehicles[0];
+                    
+                    // If this vehicle has NO visitor name yet, it's a new detection!
+                    if (!latest.visitor_name || latest.visitor_name.trim() === "") {
+                        console.log(`[TRIGGER] New vehicle detected: ${latest.vehicle_no}. Redirecting...`);
+                        clearInterval(pollingInterval);
+                        window.location.href = `/api/kiosk?plate=${latest.vehicle_no}`;
+                    }
+                }
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        }, 3000); // Check every 3 seconds
     }
+}
+
+// Start polling on load
+document.addEventListener('DOMContentLoaded', function() {
+    initChips();
+    initIDTypeLogic();
+    startInactivityTimer();
+    startStandbyPolling(); // Added this
 });
