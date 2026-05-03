@@ -205,11 +205,27 @@ def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
                         print(".", end="", flush=True)
                     
                     print("\n[RESUME] Re-starting camera...")
-                    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+                    # Use V4L2 backend for Linux/Pi stability
+                    cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
+                    
                     if not cap.isOpened():
-                        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                        # Fallback to default backend if V4L2 fails
+                        cap = cv2.VideoCapture(camera_index)
+                        
+                    if not cap.isOpened():
+                        print(f"[ERROR] Camera not found at index {camera_index}!")
+                        return
+
+                    # Try setting HD, but don't crash if it fails
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                    
+                    # Check if we actually got a frame
+                    ret, test_frame = cap.read()
+                    if not ret:
+                        print("[WARNING] Could not read frame. Trying lower resolution...")
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
             elif key == ord('q'):
                 break
