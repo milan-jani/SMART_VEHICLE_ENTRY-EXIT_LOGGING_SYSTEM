@@ -75,7 +75,7 @@ def run_device_workflow():
             break
             
         if key == ord(CAPTURE_KEY):
-            print("\n[CAPTURE] Image saved. Starting detection...")
+            print("[CAPTURE] Image saved. Starting detection...", flush=True)
             
             # Ensure directory exists
             os.makedirs("data/captures", exist_ok=True)

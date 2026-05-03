@@ -35,4 +35,4 @@ services:
       - /dev/video1:/dev/video1
     privileged: true
     # This command starts the camera runner
-    command: python -m app.device.device_runner
+    command: python3 -u -m app.device.device_runner
