@@ -722,27 +722,9 @@ async function loadDashboard() {
 }
 
 /**
- * Show a pulsing alert for a new visitor
+ * Show a pulsing alert for a new visitor and AUTO-REDIRECT
  */
 function showVisitorAlert(plate) {
-    let alertBanner = document.getElementById('visitor-alert-banner');
-    if (!alertBanner) {
-        alertBanner = document.createElement('div');
-        alertBanner.id = 'visitor-alert-banner';
-        alertBanner.className = 'visitor-alert';
-        document.body.appendChild(alertBanner);
-    }
-    
-    alertBanner.innerHTML = `
-        <div class="alert-header">
-            <i class="fas fa-car-side"></i>
-            New Vehicle Detected
-        </div>
-        <div class="alert-body">
-            Vehicle <strong>${plate}</strong> has arrived. Visitor registration is pending.
-        </div>
-        <a href="/api/kiosk?plate=${plate}" target="_blank" class="btn-alert">
-            <i class="fas fa-external-link-alt"></i> Open Registration Form
         </a>
     `;
     alertBanner.style.display = 'flex';

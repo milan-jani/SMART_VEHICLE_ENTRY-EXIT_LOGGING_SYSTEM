@@ -10,7 +10,23 @@
 </head>
 <body>
 
-    <div class="kiosk-container">
+    <div id="kiosk-standby" class="standby-overlay {% if plate %}hidden{% endif %}">
+        <div class="standby-content">
+            <div class="standby-logo">
+                <i class="fas fa-shield-halved"></i>
+            </div>
+            <h1>Welcome to Smart Gate</h1>
+            <p>Please drive your vehicle to the camera for detection.</p>
+            <div class="standby-loader">
+                <span></span><span></span><span></span>
+            </div>
+            <div class="standby-footer">
+                <i class="fas fa-camera"></i> Monitoring Active
+            </div>
+        </div>
+    </div>
+
+    <div class="kiosk-container {% if not plate %}hidden{% endif %}" id="main-kiosk-container">
         <!-- Main Form Card -->
         <div class="form-card">
             
