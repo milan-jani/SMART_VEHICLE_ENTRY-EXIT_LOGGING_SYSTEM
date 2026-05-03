@@ -1,63 +1,109 @@
 /**
- * Kiosk Form Logic - Production Version
+ * Kiosk Form Logic - Complete Version (Polling + ID Capture)
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("[KIOSK] Page Loaded. Initializing...");
+    console.log("[KIOSK] Initializing Complete Logic...");
     initChips();
     initIDTypeLogic();
     startInactivityTimer();
-    
-    // FORCE START POLLING
     startStandbyPolling();
 });
 
 // --- Polling for Standby Mode ---
 let pollingInterval;
-
 function startStandbyPolling() {
     const urlParams = new URLSearchParams(window.location.search);
-    const hasPlate = urlParams.has('plate');
-    
-    // If we already have a plate, don't poll
-    if (hasPlate) {
-        console.log("[KIOSK] Plate already present in URL. Form mode active.");
-        return;
-    }
-
-    console.log("[POLLING] Starting aggressive standby monitoring...");
-    
-    // Clear any existing interval
-    if (pollingInterval) clearInterval(pollingInterval);
+    if (urlParams.has('plate')) return;
 
     pollingInterval = setInterval(async () => {
         try {
-            // Add timestamp to prevent browser caching the API response
             const response = await fetch('/api/vehicles?t=' + new Date().getTime());
             const data = await response.json();
-            
             if (data.status === 'success' && data.vehicles && data.vehicles.length > 0) {
                 const latest = data.vehicles[0];
-                
-                // If visitor_name is null, empty, or "Pending", it's our target!
-                const isPending = !latest.visitor_name || 
-                                 latest.visitor_name.trim() === "" || 
-                                 latest.visitor_name.toLowerCase() === "pending";
-
+                const isPending = !latest.visitor_name || latest.visitor_name.trim() === "" || latest.visitor_name.toLowerCase() === "pending";
                 if (isPending) {
-                    console.log(`[REDIRECT] Found pending vehicle: ${latest.vehicle_no}. Flipping to form...`);
                     clearInterval(pollingInterval);
-                    // Use replace to prevent "Back" button loop
                     window.location.replace(`/api/kiosk?plate=${latest.vehicle_no}`);
                 }
             }
-        } catch (err) {
-            console.error("[POLLING ERROR]", err);
-        }
+        } catch (err) { console.error("Poll Error:", err); }
     }, 3000);
 }
 
-// --- Chip/Pill Selection Logic ---
+// --- ID Capture Modal Logic ---
+let currentCaptureSide = ''; 
+let isCameraActive = false;
+let videoStream = null;
+
+function openCameraModal(side) {
+    currentCaptureSide = side;
+    const modal = document.getElementById('camera-modal');
+    const modalTitle = document.getElementById('modal-title');
+    modalTitle.textContent = side === 'front' ? 'Capture Front of ID' : 'Capture Back of ID';
+    modal.classList.remove('hidden');
+    initCamera();
+}
+
+function closeCameraModal() {
+    document.getElementById('camera-modal').classList.add('hidden');
+    stopCamera();
+}
+
+async function initCamera() {
+    const video = document.getElementById('camera-video');
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        videoStream = stream;
+        video.srcObject = stream;
+        isCameraActive = true;
+    } catch (err) {
+        console.error("Camera Error:", err);
+        alert("Camera not available. Please use 'Upload' fallback.");
+    }
+}
+
+function stopCamera() {
+    if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+    isCameraActive = false;
+}
+
+function takeSnapshot() {
+    if (!isCameraActive) return;
+    const video = document.getElementById('camera-video');
+    const canvas = document.getElementById('camera-canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+        const file = new File([blob], 'id_capture.jpg', { type: 'image/jpeg' });
+        uploadFileToAPI(file);
+    }, 'image/jpeg', 0.9);
+}
+
+async function uploadFileToAPI(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        const resp = await fetch('/api/upload-id-card', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            updateCaptureBox(currentCaptureSide, data.file_path);
+            closeCameraModal();
+        }
+    } catch (err) { alert("Upload failed"); }
+}
+
+function updateCaptureBox(side, filePath) {
+    document.getElementById(`capture-${side}-box`).classList.add('has-image');
+    document.getElementById(`${side}-preview-img`).src = `/${filePath}`;
+    document.getElementById(`${side}-preview-img`).classList.remove('hidden');
+    document.getElementById(`${side}-preview-container`).classList.add('hidden');
+    document.getElementById(`id_card_${side}_path`).value = filePath;
+}
+
+// --- Chip/Pill Selection ---
 function initChips() {
     setupChipGroup('purpose-chips', 'purpose');
     setupChipGroup('vehicle-type-chips', 'vehicle_type');
@@ -67,113 +113,59 @@ function initChips() {
 function setupChipGroup(groupId, inputId) {
     const group = document.getElementById(groupId);
     if (!group) return;
-    
-    const hiddenInput = document.getElementById(inputId);
+    const input = document.getElementById(inputId);
     const chips = group.querySelectorAll('.chip');
-    
     chips.forEach(chip => {
         chip.addEventListener('click', () => {
             chips.forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
-            hiddenInput.value = chip.dataset.value;
-            hiddenInput.setCustomValidity('');
+            input.value = chip.dataset.value;
         });
     });
 }
 
-function updatePersons(change) {
-    const input = document.getElementById('num_persons');
-    let val = parseInt(input.value) || 1;
-    val += change;
-    const min = parseInt(input.min) || 1;
-    const max = parseInt(input.max) || 10;
-    if (val >= min && val <= max) input.value = val;
-}
-
 function initIDTypeLogic() {
-    const idTypeSelect = document.getElementById('id_type');
-    if (!idTypeSelect) return;
-    
-    const idNumberInput = document.getElementById('id_number');
-    const backRequiredStar = document.getElementById('back-required-star');
-    const validationMsg = document.getElementById('id_validation_msg');
-    
-    idTypeSelect.addEventListener('change', function() {
-        const type = this.value;
-        if (validationMsg) validationMsg.textContent = '';
-        idNumberInput.value = '';
-        
-        switch(type) {
-            case 'aadhaar':
-                idNumberInput.placeholder = "e.g. 1234 5678 9012";
-                idNumberInput.pattern = "^[2-9]{1}[0-9]{3}\\s[0-9]{4}\\s[0-9]{4}$|^[2-9]{1}[0-9]{11}$";
-                idNumberInput.maxLength = 14; 
-                if (backRequiredStar) backRequiredStar.style.display = 'inline';
-                break;
-            case 'pan':
-                idNumberInput.placeholder = "e.g. ABCDE1234F";
-                idNumberInput.pattern = "^[A-Z]{5}[0-9]{4}[A-Z]{1}$";
-                idNumberInput.maxLength = 10;
-                if (backRequiredStar) backRequiredStar.style.display = 'none';
-                break;
-            default:
-                idNumberInput.placeholder = "Enter ID Document Number";
-                idNumberInput.removeAttribute('pattern');
-                if (backRequiredStar) backRequiredStar.style.display = 'none';
-        }
+    const idType = document.getElementById('id_type');
+    if (!idType) return;
+    idType.addEventListener('change', function() {
+        const input = document.getElementById('id_number');
+        input.value = '';
+        if (this.value === 'aadhaar') input.placeholder = "12 Digit Aadhaar";
+        else input.placeholder = "ID Number";
     });
-}
-
-let inactivityTimeout;
-function resetTimer() {
-    clearTimeout(inactivityTimeout);
-    inactivityTimeout = setTimeout(() => {
-        // If on standby, don't redirect. Only redirect if on form.
-        const hasPlate = new URLSearchParams(window.location.search).has('plate');
-        if (hasPlate) window.location.href = '/api/kiosk';
-    }, 180000); // 3 minutes
 }
 
 function startInactivityTimer() {
-    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(evt => 
-        document.addEventListener(evt, resetTimer, true)
-    );
+    let timer;
+    const reset = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            if (new URLSearchParams(window.location.search).has('plate')) window.location.href = '/api/kiosk';
+        }, 120000);
+    };
+    ['mousedown', 'mousemove', 'keypress'].forEach(e => document.addEventListener(e, reset));
+    reset();
 }
 
-// Simplified form submission for focus
-const form = document.getElementById('kiosk-form');
-if (form) {
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Basic validation
-        if (!document.getElementById('purpose').value) { alert("Select Purpose"); return; }
-        
-        const statusOverlay = document.getElementById('status-overlay');
-        statusOverlay.classList.remove('hidden');
-        
-        const formData = new FormData(form);
-        const dataObj = Object.fromEntries(formData.entries());
-        
-        try {
-            const response = await fetch('/api/kiosk', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(dataObj)
-            });
-            const result = await response.json();
-            if (response.ok && result.status === 'success') {
-                document.getElementById('loading-spinner').classList.add('hidden');
-                document.getElementById('success-message').classList.remove('hidden');
-                setTimeout(() => { window.location.href = '/api/kiosk'; }, 3000);
-            } else {
-                alert("Error: " + (result.detail || "Submission failed"));
-                statusOverlay.classList.add('hidden');
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Submission failed. Check connection.");
+// Form Submit
+document.getElementById('kiosk-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const statusOverlay = document.getElementById('status-overlay');
+    statusOverlay.classList.remove('hidden');
+    const data = Object.fromEntries(new FormData(this).entries());
+    try {
+        const resp = await fetch('/api/kiosk', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        if (resp.ok) {
+            document.getElementById('loading-spinner').classList.add('hidden');
+            document.getElementById('success-message').classList.remove('hidden');
+            setTimeout(() => { window.location.href = '/api/kiosk'; }, 3000);
+        } else {
             statusOverlay.classList.add('hidden');
+            alert("Error saving data");
         }
-    });
-}
+    } catch (err) { statusOverlay.classList.add('hidden'); }
+});
