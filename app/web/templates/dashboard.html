@@ -873,6 +873,7 @@
                                 <th>In Time</th>
                                 <th>Out Time</th>
                                 <th>Status</th>
+                                <th style="text-align: center;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="vehicles-tbody">
@@ -938,12 +939,13 @@
         </div>
     </div>
     
-    <script src="{{ url_for('static', path='/js/dashboard.js') }}?v=9.1"></script>
-</body>
-</html>
+    <script src="{{ url_for('static', path='/js/dashboard.js') }}?v=9.2"></script>
+    <script>
         // Load dashboard on page load
         window.addEventListener('DOMContentLoaded', loadDashboard);
     </script>
+</body>
+</html>
     
     <!-- Add Worker Modal -->
     <div id="add-worker-modal" class="modal-overlay">

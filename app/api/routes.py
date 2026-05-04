@@ -463,6 +463,8 @@ async def submit_kiosk_form(request: Request):
         success = update_kiosk_visit_details(vehicle_no, data)
         
         if success:
+            global KIOSK_LOCKED_VEHICLE
+            KIOSK_LOCKED_VEHICLE = None # CLEAR THE LOCK
             return {"status": "success", "message": "Visitor details logged successfully"}
         else:
             raise HTTPException(status_code=404, detail="No open visit found for this vehicle")

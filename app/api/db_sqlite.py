@@ -334,24 +334,28 @@ def get_stats() -> Dict[str, Any]:
     
     # Currently Inside
     cursor.execute("SELECT COUNT(*) FROM visits WHERE status = 'inside'")
-    stats["currently_inside"] = cursor.fetchone()[0]
+    stats["open_entries"] = cursor.fetchone()[0]
+    
+    # Exited
+    cursor.execute("SELECT COUNT(*) FROM visits WHERE status = 'exited'")
+    stats["closed_entries"] = cursor.fetchone()[0]
     
     # Unique Vehicles
     cursor.execute('SELECT COUNT(DISTINCT vehicle_no) FROM visits')
     stats["unique_vehicles"] = cursor.fetchone()[0]
     
-    # Regular vs Visitor Counts
-    cursor.execute('''
-        SELECT visitor_type, COUNT(*) 
-        FROM visits 
-        GROUP BY visitor_type
-    ''')
-    type_counts = dict(cursor.fetchall())
-    stats["regular_visits"] = type_counts.get("regular", 0)
-    stats["visitor_visits"] = type_counts.get("visitor", 0)
-    
     conn.close()
     return stats
+
+def delete_visit(visit_id: int) -> bool:
+    """Deletes a visit record by ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM visits WHERE id = ?', (visit_id,))
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
 
 # --- Phase 5: Kiosk-specific operations ---
 

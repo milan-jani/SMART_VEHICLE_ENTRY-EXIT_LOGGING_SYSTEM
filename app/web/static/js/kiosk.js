@@ -39,7 +39,7 @@ function startStandbyPolling() {
                 // 2. Check if it's RECENT (within last 60 seconds)
                 const entryTime = new Date(latest.in_time).getTime();
                 const now = new Date().getTime();
-                const isRecent = (now - entryTime) < 60000; // 60 seconds
+                const isRecent = Math.abs(now - entryTime) < 600000; // 10 minutes (Relaxed for Pi drift)
 
                 if (isPending && isRecent) {
                     console.log(`[TRIGGER] New detection: ${latest.vehicle_no}`);
