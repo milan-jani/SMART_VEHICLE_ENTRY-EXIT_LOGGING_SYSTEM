@@ -1,106 +1,61 @@
-"""
-ANPR Module
-Handles Automatic Number Plate Recognition using PlateRecognizer API
-"""
 import requests
-from typing import Optional, Dict
+import os
+from typing import Optional
+from dotenv import load_dotenv
 
-# API Configuration
-API_KEY = "be5b13c29a83097837f0a4983efc62a5e1bb6d98"
+# Load env
+if os.path.exists(".env"):
+    load_dotenv(".env")
+elif os.path.exists(".env.example"):
+    load_dotenv(".env.example")
+
+# Both keys from env — KEY_1 is expired, so try KEY_2 first
+API_KEY_1 = os.getenv("PLATE_RECOGNIZER_API_KEY_1", "")
+API_KEY_2 = os.getenv("PLATE_RECOGNIZER_API_KEY_2", "")
 API_ENDPOINT = "https://api.platerecognizer.com/v1/plate-reader/"
 
+def _try_detect(image_path: str, api_key: str) -> Optional[dict]:
+    """Try detection with a specific API key. Returns response dict or None."""
+    with open(image_path, 'rb') as img_file:
+        response = requests.post(
+            API_ENDPOINT,
+            files=dict(upload=img_file),
+            headers={'Authorization': f'Token {api_key}'},
+            timeout=15
+        )
+    if response.status_code in (200, 201):
+        return response.json()
+    print(f"[WARN] API key ending ...{api_key[-6:]} returned {response.status_code}")
+    return None
 
-def detect_plate_from_image(image_path: str) -> Optional[str]:
+def detect_plate(image_path: str) -> Optional[str]:
     """
-    Detect license plate number from an image using PlateRecognizer API
-    
-    Args:
-        image_path: Path to the image file
-    
-    Returns:
-        Detected plate number (uppercase) or None if not detected
+    Detect license plate from image.
+    Tries KEY_2 first (KEY_1 is expired), falls back to KEY_1.
     """
-    try:
-        with open(image_path, 'rb') as img_file:
-            response = requests.post(
-                API_ENDPOINT,
-                files=dict(upload=img_file),
-                headers={'Authorization': f'Token {API_KEY}'}
-            )
-        
-        result = response.json()
-        
-        if result.get("results") and len(result["results"]) > 0:
-            plate_number = result["results"][0]["plate"].upper()
-            confidence = result["results"][0].get("score", 0)
-            print(f"[DETECTED] Plate: {plate_number} (Confidence: {confidence:.2f})")
-            return plate_number
-        else:
-            print("[ERROR] No plate detected in image.")
-            return None
+    print(f"[DEBUG] Reading image file: {image_path}")
     
-    except FileNotFoundError:
-        print(f"[ERROR] Image file not found: {image_path}")
-        return None
-    except requests.RequestException as e:
-        print(f"[ERROR] API request failed: {str(e)}")
-        return None
-    except Exception as e:
-        print(f"[ERROR] Error detecting plate: {str(e)}")
+    keys_to_try = [k for k in [API_KEY_2, API_KEY_1] if k]
+    
+    if not keys_to_try:
+        print("[ERROR] No PLATE_RECOGNIZER_API_KEY set in .env or .env.example!")
         return None
 
+    for key in keys_to_try:
+        try:
+            print(f"[DEBUG] Trying key ...{key[-6:]}")
+            result = _try_detect(image_path, key)
+            if result and result.get("results"):
+                plate = result["results"][0]["plate"].upper()
+                score = result["results"][0].get("score", 0)
+                print(f"[SUCCESS] Detected: {plate} (Score: {score:.2f})")
+                return plate
+            elif result:
+                print("[WARNING] No plate found in this image.")
+                return None
+        except Exception as e:
+            print(f"[WARN] Key ...{key[-6:]} failed: {e}")
+            continue
 
-def detect_plate_with_details(image_path: str) -> Optional[Dict]:
-    """
-    Detect license plate with detailed information
-    
-    Args:
-        image_path: Path to the image file
-    
-    Returns:
-        Dictionary with plate details or None if not detected
-    """
-    try:
-        with open(image_path, 'rb') as img_file:
-            response = requests.post(
-                API_ENDPOINT,
-                files=dict(upload=img_file),
-                headers={'Authorization': f'Token {API_KEY}'}
-            )
-        
-        result = response.json()
-        
-        if result.get("results") and len(result["results"]) > 0:
-            plate_data = result["results"][0]
-            return {
-                "plate": plate_data["plate"].upper(),
-                "confidence": plate_data.get("score", 0),
-                "region": plate_data.get("region", {}).get("code", "Unknown"),
-                "vehicle_type": plate_data.get("vehicle", {}).get("type", "Unknown"),
-                "box": plate_data.get("box", {})
-            }
-        else:
-            print("[ERROR] No plate detected in image.")
-            return None
-    
-    except Exception as e:
-        print(f"[ERROR] Error detecting plate: {str(e)}")
-        return None
-
-
-def validate_plate_format(plate: str) -> bool:
-    """
-    Basic validation for plate number format
-    
-    Args:
-        plate: Plate number string
-    
-    Returns:
-        True if valid format, False otherwise
-    """
-    if not plate or len(plate) < 3:
-        return False
-    
-    # Remove spaces and check if alphanumeric
-    cleaned = plate.replace(" ", "").replace("-", "")
-    return cleaned.isalnum() and len(cleaned) >= 3
+    print("[ERROR] All API keys failed.")
+    return None

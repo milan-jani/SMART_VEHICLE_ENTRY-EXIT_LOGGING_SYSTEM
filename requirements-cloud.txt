@@ -1,0 +1,22 @@
+# Hybrid Logging System - Cloud-Only Requirements (Raspberry Pi)
+# Use this for Pi deployment where local AI models are too heavy
+# All plate detection and ID OCR done via Cloud APIs
+
+# FastAPI and Web Framework
+fastapi>=0.115.0
+uvicorn>=0.32.0
+python-multipart>=0.0.9
+jinja2>=3.1.3
+
+# HTTP Requests
+requests>=2.31.0
+
+# Computer Vision (Headless - no GUI needed in Docker)
+# OpenCV - Standard version for GUI support
+opencv-python>=4.8.0
+
+# Data Validation
+pydantic>=2.10.0
+
+# Utilities
+python-dotenv>=1.0.0

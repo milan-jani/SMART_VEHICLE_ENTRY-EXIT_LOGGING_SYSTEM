@@ -1,335 +1,199 @@
-"""
-Device Runner
-Main workflow for device operation: capture, detect, and communicate with API
-"""
+import cv2
+import os
+import time
 import requests
-import webbrowser
+import platform
 from datetime import datetime
-from typing import Optional
 
-from app.device.camera import capture_with_preview
-from app.device.anpr import detect_plate_from_image as detect_plate_api
-from app.device.anpr_local import detect_plate_from_image as detect_plate_local
-from app.device.config import (
-    DEFAULT_CAMERA_INDEX,
-    ANPR_MODE,
-    API_NEW_ENTRY,
-    API_UPDATE_EXIT,
-    API_FORM_URL,
-    API_KIOSK_URL,
-    AUTO_OPEN_FORM
-)
+try:
+    from .config import DEFAULT_CAMERA_INDEX, CAPTURE_KEY, QUIT_KEY, API_BASE_URL, ANPR_MODE
+    from .anpr import detect_plate
+except (ImportError, ValueError):
+    from config import DEFAULT_CAMERA_INDEX, CAPTURE_KEY, QUIT_KEY, API_BASE_URL, ANPR_MODE
+    from anpr import detect_plate
 
+IS_WINDOWS = platform.system() == "Windows"
 
-def send_new_entry(vehicle_no: str, image_path: str) -> dict:
-    """
-    Send new entry to backend API
-    
-    Args:
-        vehicle_no: Detected vehicle number
-        image_path: Path to captured image
-    
-    Returns:
-        Dictionary with 'success' (bool) and 'status' (str: 'new' or 'existing')
-    """
+def check_kiosk_status():
+    """Returns True if system is ready for next vehicle."""
     try:
-        in_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Use very short timeout for local polling to avoid stuttering
+        r = requests.get(f"{API_BASE_URL}/api/kiosk-status", timeout=0.5)
+        return r.status_code == 200 and r.json().get("status") == "ready"
+    except:
+        return False
+
+def process_vehicle(plate_number, image_path):
+    """Sends detection to backend."""
+    if not plate_number:
+        print("[ERROR] Could not read plate. Try again.", flush=True)
+        return False
+
+    print(f"[API] Sending {plate_number} to {API_BASE_URL}...", flush=True)
+    payload = {"vehicle_no": plate_number, "image_path": image_path}
+    
+    try:
+        resp = requests.post(f"{API_BASE_URL}/api/new-entry", json=payload, timeout=10)
+        data = resp.json()
         
-        payload = {
-            "vehicle_no": vehicle_no,
-            "image_path": image_path,
-            "in_time": in_time
-        }
-        
-        response = requests.post(API_NEW_ENTRY, json=payload, timeout=10)
-        
-        if response.status_code == 200:
-            result = response.json()
-            api_status = result.get('status', 'success')
-            
-            if api_status == 'warning':
-                # Vehicle already has an open entry (already inside)
-                print(f"[WARNING] {result.get('message', 'Vehicle already inside')}")
-                return {'success': True, 'status': 'existing'}
+        status = data.get("status")
+        if status in ("success", "new", "worker_entry"):
+            print(f"[SUCCESS] {data.get('message')}", flush=True)
+            return "handover"
+        elif status == "warning":
+            # Vehicle is already inside, this is likely an EXIT
+            print(f"[UPDATE] {data.get('message')}. Registering EXIT...", flush=True)
+            exit_resp = requests.post(f"{API_BASE_URL}/api/update-exit", json={"vehicle_no": plate_number}, timeout=10)
+            if exit_resp.ok:
+                print(f"[EXIT] Vehicle {plate_number} has exited successfully.", flush=True)
+                return "exit"
             else:
-                # New entry created successfully
-                print(f"[SUCCESS] {result.get('message', 'Entry created successfully')}")
-                return {'success': True, 'status': 'new'}
+                print(f"[ERROR] Failed to update exit: {exit_resp.text}", flush=True)
+                return "fail"
         else:
-            print(f"[ERROR] API Error: {response.status_code} - {response.text}")
-            return {'success': False, 'status': 'error'}
-    
-    except requests.RequestException as e:
-        print(f"[ERROR] Failed to send entry to API: {str(e)}")
-        print("[WARNING] Make sure the backend server is running!")
-        return {'success': False, 'status': 'error'}
-
-
-def send_exit_update(vehicle_no: str) -> bool:
-    """
-    Send exit time update to backend API
-    
-    Args:
-        vehicle_no: Vehicle number
-    
-    Returns:
-        True if successful, False otherwise
-    """
-    try:
-        out_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        payload = {
-            "vehicle_no": vehicle_no,
-            "out_time": out_time
-        }
-        
-        response = requests.post(API_UPDATE_EXIT, json=payload, timeout=10)
-        
-        if response.status_code == 200:
-            result = response.json()
-            print(f"[SUCCESS] {result.get('message', 'Exit updated successfully')}")
-            return True
-        elif response.status_code == 404:
-            print(f"[WARNING] No open entry found for vehicle {vehicle_no}")
-            return False
-        else:
-            print(f"[ERROR] API Error: {response.status_code} - {response.text}")
-            return False
-    
-    except requests.RequestException as e:
-        print(f"[ERROR] Failed to send exit update to API: {str(e)}")
-        print("[WARNING] Make sure the backend server is running!")
-        return False
-
-
-def check_existing_entry(vehicle_no: str) -> Optional[dict]:
-    """
-    Check if vehicle has an existing open entry
-    
-    Args:
-        vehicle_no: Vehicle number to check
-    
-    Returns:
-        Existing entry data if found, None otherwise
-    """
-    try:
-        # This would require a new API endpoint to check vehicle status
-        # For now, we'll handle this in send_new_entry response
-        pass
+            print(f"[BACKEND ERROR] {data.get('message')}", flush=True)
+            return "fail"
     except Exception as e:
-        print(f"[ERROR] Error checking existing entry: {str(e)}")
-    return None
+        print(f"[CONNECTION ERROR] Could not reach backend: {e}", flush=True)
+        return "fail"
 
-
-def open_visitor_form(vehicle_no: str) -> None:
-    """
-    Open visitor form in browser
+def open_camera(index):
+    """Opens camera with OS-appropriate backend."""
+    if IS_WINDOWS:
+        cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(index, cv2.CAP_V4L2)
     
-    Args:
-        vehicle_no: Vehicle number to pre-fill in form
-    """
-    try:
-        form_url = f"{API_KIOSK_URL}?plate={vehicle_no}"
-        print(f"[BROWSER] Opening visitor form: {form_url}")
-        webbrowser.open(form_url)
-    except Exception as e:
-        print(f"[ERROR] Failed to open form: {str(e)}")
-
-
-def process_vehicle(plate_number: str, image_path: str) -> None:
-    """
-    Process a detected vehicle (check status and update)
-    
-    Args:
-        plate_number: Detected plate number
-        image_path: Path to captured image
-    """
-    print(f"\n[SUCCESS] Plate detected: {plate_number}")
-    
-    # Check vehicle status and send to API
-    print("[PROCESSING] Checking vehicle status...")
-    entry_result = send_new_entry(plate_number, image_path)
-    
-    if not entry_result['success']:
-        # API error - could not process
-        print("[WARNING] Could not process vehicle. Check API logs.")
-    
-    elif entry_result['status'] == 'worker_entry':
-        # Authorized worker/regular user - log and skip form
-        name = entry_result.get('name', 'Unknown')
-        print(f"[NEW ENTRY] Worker entry created for: {name}")
-        print(f"[LOGGED] Vehicle {plate_number} marked as INSIDE. Form skipped.")
-        
-    if entry_result['status'] == 'new':
-        # New visitor vehicle entry created - open form for visitor details
-        print(f"[NEW ENTRY] New visitor entry created!")
-        print(f"[LOGGED] Vehicle {plate_number} marked as INSIDE")
-        
-        if AUTO_OPEN_FORM:
-            print("[BROWSER] Opening visitor form...")
-            open_visitor_form(plate_number)
-            print("[INFO] Please fill out the visitor form in your browser.")
-            return True  # Signal to pause camera for ID scan
-        else:
-            print(f"[INFO] Visit {API_KIOSK_URL}?plate={plate_number} to fill visitor details")
-            return False
-    
-    elif entry_result['status'] == 'existing':
-        # Vehicle already has an open entry (already inside) - mark as exit
-        print(f"[UPDATE] Vehicle {plate_number} is already INSIDE")
-        print("[PROCESSING] Marking as EXIT...")
-        
-        exit_success = send_exit_update(plate_number)
-        
-        if exit_success:
-            print(f"[SUCCESS] Vehicle {plate_number} marked as EXITED!")
-            print(f"[LOGGED] Exit time recorded successfully")
-        else:
-            print(f"[ERROR] Failed to record exit time")
-        return False
-    
-    return False
-
-
-def run_device_workflow(camera_index: int = DEFAULT_CAMERA_INDEX) -> None:
-    """
-    Main device workflow - Continuous monitoring mode
-    Keeps camera running and processes vehicles as they arrive
-    
-    1. Camera stays ON continuously
-    2. Press 'c' to capture and process vehicle
-    3. Press 'q' to quit and close camera
-    
-    Args:
-        camera_index: Camera device index
-    """
-    print("\n" + "="*60)
-    print("HYBRID LOGGING SYSTEM - CONTINUOUS MONITORING MODE")
-    print("="*60 + "\n")
-    print("Camera will stay ON continuously")
-    print("Press 'c' to capture and process vehicle")
-    print("Press 'q' to quit and close camera")
-    print("\n" + "="*60 + "\n")
-    
-    import cv2
-    import time
-    import os
-    
-    # Open camera once
-    cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
-        print("[ERROR] Camera not found. Please check camera connection.")
-        return
+        cap = cv2.VideoCapture(index)
     
-    print("[SUCCESS] Camera initialized successfully!")
-    print("Live preview starting...\n")
+    if not cap.isOpened() and index != 0:
+        print(f"[WARN] Camera {index} failed, trying 0...", flush=True)
+        cap = cv2.VideoCapture(0)
     
-    try:
+    return cap
+
+def run_device_workflow():
+    print("\n" + "="*60)
+    print("HYBRID LOGGING SYSTEM - LAPTOP MODE")
+    print("="*60)
+    print(f"[INFO] Camera Index: {DEFAULT_CAMERA_INDEX}")
+    print(f"[INFO] Press '{CAPTURE_KEY}' to capture, '{QUIT_KEY}' to quit.\n", flush=True)
+
+    while True:
+        cap = open_camera(DEFAULT_CAMERA_INDEX)
+        
+        if not cap.isOpened():
+            print("[FATAL] No camera found. Exiting.", flush=True)
+            return
+
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        print("[READY] Camera feed active. Waiting for captures...\n", flush=True)
+        
+        last_kiosk_check = 0
+        kiosk_ready = True
+
         while True:
-            # Read frame from camera
             ret, frame = cap.read()
             if not ret:
-                print("[WARNING] Failed to capture frame. Retrying...")
-                continue
-            
-            # Show live preview
-            cv2.imshow("Hybrid Logging System - Press 'c' to capture | 'q' to quit", frame)
-            
-            # Wait for key press (1ms delay)
+                print("[ERROR] Lost camera feed.", flush=True)
+                break
+
+            # Update kiosk status every 2 seconds without blocking too much
+            # (Note: requests is still sync, but doing it here keeps the 'c' press instant)
+            if time.time() - last_kiosk_check > 2:
+                kiosk_ready = check_kiosk_status()
+                last_kiosk_check = time.time()
+
+            cv2.imshow("Smart Gate - Camera Feed", frame)
             key = cv2.waitKey(1) & 0xFF
             
-            if key == ord('c'):
-                # Capture button pressed
-                print("\n" + "-"*60)
-                print("[CAPTURE] Capturing image...")
+            if key == ord(QUIT_KEY):
+                cap.release()
+                cv2.destroyAllWindows()
+                return
                 
-                # Save image to photos directory
-                photo_dir = os.path.join(
-                    os.path.dirname(__file__),
-                    "..", "..",
-                    "data", "photos"
-                )
-                os.makedirs(photo_dir, exist_ok=True)
-                image_path = os.path.join(photo_dir, f"capture_{int(time.time())}.jpg")
-                
-                cv2.imwrite(image_path, frame)
-                print(f"[SAVED] {image_path}")
-                
-                # Detect plate number
-                print(f"\n[DETECTING] Initializing Plate Reader (Mode: {ANPR_MODE.upper()})...")
-                plate_number = None
-                
-                if ANPR_MODE in ["local", "hybrid"]:
-                    plate_number = detect_plate_local(image_path)
-                    
-                if not plate_number and ANPR_MODE in ["api", "hybrid"]:
-                    if ANPR_MODE == "hybrid":
-                        print("[INFO] Fallback: Local OCR failed. Sending to Cloud API...")
-                    plate_number = detect_plate_api(image_path)
-                
-                if not plate_number:
-                    print("[ERROR] No plate detected. Please try again.")
-                    print("-"*60 + "\n")
-                    print("[INFO] Camera still running... Press 'c' to capture again")
+            if key == ord(CAPTURE_KEY):
+                # Use cached status
+                if not kiosk_ready:
+                    print("\n[BUSY] Complete the current visitor form first!", flush=True)
                     continue
+
+                print("\n[CAPTURE] Starting 3 second countdown...", flush=True)
+                countdown_start = time.time()
+                capture_frame = None
                 
-                # Process the vehicle
-                should_pause = process_vehicle(plate_number, image_path)
+                while True:
+                    ret, current_frame = cap.read()
+                    if not ret: continue
+                    
+                    elapsed = time.time() - countdown_start
+                    remaining = 3 - int(elapsed)
+                    
+                    if remaining <= 0:
+                        capture_frame = current_frame.copy()
+                        break
+                    
+                    # Simple Top-Right Corner UI (Non-obtrusive)
+                    display_frame = current_frame.copy()
+                    h, w, _ = display_frame.shape
+                    
+                    # Solid teal box in top right
+                    rect_w, rect_h = 80, 80
+                    cv2.rectangle(display_frame, (w - rect_w - 20, 20), (w - 20, 20 + rect_h), (136, 148, 13), -1)
+                    
+                    # Countdown text
+                    text = str(remaining)
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    t_size = cv2.getTextSize(text, font, 2, 4)[0]
+                    tx = w - 20 - rect_w + (rect_w - t_size[0]) // 2
+                    ty = 20 + (rect_h + t_size[1]) // 2
+                    cv2.putText(display_frame, text, (tx, ty), font, 2, (255, 255, 255), 4, cv2.LINE_AA)
+                    
+                    cv2.imshow("Smart Gate - Camera Feed", display_frame)
+                    cv2.waitKey(1)
+
+                print("\n[CAPTURE] Image saved. Starting detection...", flush=True)
+                os.makedirs("data/captures", exist_ok=True)
+                image_path = f"data/captures/detect_{int(time.time())}.jpg"
+                cv2.imwrite(image_path, capture_frame)
                 
-                print("-"*60 + "\n")
-                
-                if should_pause:
-                    print("[PAUSE] Camera released for ID scan in browser.")
-                    print("[ACTION] Please complete the ID scanning in your browser window.")
-                    print("[ACTION] Once finished, return here and press ENTER to resume plate detection.")
+                try:
+                    print("[DETECTING] Analyzing plate...", flush=True)
+                    plate_number = detect_plate(image_path)
                     
-                    cap.release()
-                    cv2.destroyAllWindows()
-                    
-                    # Wait for user to finish
-                    input("\n>>> Press ENTER to resume camera...")
-                    
-                    # Restart camera
-                    print("\n[RESUME] Re-initializing camera...")
-                    cap = cv2.VideoCapture(camera_index)
-                    if not cap.isOpened():
-                        print("[ERROR] Failed to re-open camera. Please restart the script.")
-                        return
-                    print("[SUCCESS] Camera restarted. Ready for next vehicle.\n")
-                else:
-                    print("[INFO] Camera still running... Ready for next vehicle")
-                    print("[INFO] Press 'c' to capture | 'q' to quit\n")
-            
-            elif key == ord('q'):
-                # Quit button pressed
-                print("\n" + "="*60)
-                print("[SHUTDOWN] Shutting down camera...")
-                break
-    
-    except KeyboardInterrupt:
-        print("\n\n[WARNING] Interrupted by user (Ctrl+C)")
-    
-    finally:
-        # Clean up
+                    if plate_number:
+                        print(f"[DETECTED] Plate: {plate_number}", flush=True)
+                        result = process_vehicle(plate_number, image_path)
+                        
+                        if result == "handover":
+                            # Release camera so browser can use it for ID scan
+                            print("\n[HANDOVER] Releasing camera for Kiosk form...", flush=True)
+                            cap.release()
+                            cv2.destroyAllWindows()
+                            
+                            print("[WAITING] Camera paused until form is submitted...", flush=True)
+                            while True:
+                                if check_kiosk_status():
+                                    break
+                                time.sleep(2)
+                            
+                            print("[READY] Form done! Re-acquiring camera...\n", flush=True)
+                            time.sleep(1)
+                            break  # Break inner loop to re-open camera
+                        elif result == "exit":
+                            # Exit handled, just continue monitoring
+                            continue
+                        else:
+                            print("[RETRY] Detection failed to process.", flush=True)
+                    else:
+                        print("[FAILED] No plate detected. Try again.", flush=True)
+                except Exception as e:
+                    print(f"[CRITICAL ERROR] ANPR failed: {e}", flush=True)
+
         cap.release()
         cv2.destroyAllWindows()
-        print("[SUCCESS] Camera closed successfully")
-        print("="*60 + "\n")
-
-
-def main():
-    """
-    Entry point for device runner
-    """
-    try:
-        run_device_workflow()
-    except KeyboardInterrupt:
-        print("\n\n[WARNING] Workflow interrupted by user.")
-    except Exception as e:
-        print(f"\n\n[ERROR] Unexpected error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-
 
 if __name__ == "__main__":
-    main()
+    run_device_workflow()

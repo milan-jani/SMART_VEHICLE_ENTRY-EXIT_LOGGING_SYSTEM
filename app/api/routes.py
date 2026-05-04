@@ -24,11 +24,15 @@ from .db_sqlite import (
     mark_regular_user,
     get_all_regular_users,
     delete_regular_user,
-    update_kiosk_visit_details
+    update_kiosk_visit_details,
+    delete_visit
 )
 from .id_ocr import extract_id_details
 
 router = APIRouter()
+
+# Global state: tracks if a visitor is currently filling the kiosk form
+KIOSK_LOCKED_VEHICLE = None
 
 # Setup templates
 templates_path = os.path.join(os.path.dirname(__file__), "..", "web", "templates")
@@ -71,6 +75,7 @@ async def create_new_entry(entry: NewEntryRequest):
     Create a new vehicle entry (IN time)
     Called by device when a new vehicle arrives
     """
+    global KIOSK_LOCKED_VEHICLE
     try:
         in_time = entry.in_time or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -102,6 +107,9 @@ async def create_new_entry(entry: NewEntryRequest):
         else:
             visitor_type = "visitor"
             response_status = "new"
+            # LOCK kiosk for this visitor
+            KIOSK_LOCKED_VEHICLE = entry.vehicle_no
+            print(f"[LOCK] Kiosk locked for: {KIOSK_LOCKED_VEHICLE}")
         
         # Create new entry
         create_visit(
@@ -210,6 +218,9 @@ async def get_all_vehicles():
         }
     
     except Exception as e:
+        print(f"[ERROR] /api/vehicles failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error fetching vehicles: {str(e)}")
 
 
@@ -228,6 +239,9 @@ async def get_statistics():
         }
     
     except Exception as e:
+        print(f"[ERROR] /api/stats failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error fetching stats: {str(e)}")
 
 
@@ -376,8 +390,9 @@ async def visitor_form_page(request: Request, plate: str = ""):
     Serve the visitor entry form
     """
     return templates.TemplateResponse(
+        request,
         "form.html",
-        {"request": request, "plate": plate, "success_message": None}
+        {"plate": plate, "success_message": None}
     )
 
 
@@ -398,9 +413,9 @@ async def submit_visitor_form(
         success_message = "Visitor logged successfully!" if success else "Error updating details"
         
         return templates.TemplateResponse(
+            request,
             "form.html",
             {
-                "request": request,
                 "plate": vehicle,
                 "success_message": success_message
             }
@@ -408,9 +423,9 @@ async def submit_visitor_form(
     
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "form.html",
             {
-                "request": request,
                 "plate": vehicle,
                 "success_message": f"Error: {str(e)}"
             }
@@ -423,8 +438,9 @@ async def dashboard_page(request: Request):
     Serve the dashboard page
     """
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
-        {"request": request}
+        {}
     )
 
 
@@ -436,8 +452,9 @@ async def kiosk_form_page(request: Request, plate: str = ""):
     Serve the kiosk visitor entry form
     """
     return templates.TemplateResponse(
+        request,
         "kiosk.html",
-        {"request": request, "plate": plate}
+        {"plate": plate}
     )
 
 @router.post("/kiosk")
@@ -446,6 +463,7 @@ async def submit_kiosk_form(request: Request):
     Handle visitor form submission from kiosk
     Receives JSON payload with all required fields
     """
+    global KIOSK_LOCKED_VEHICLE
     try:
         data = await request.json()
         vehicle_no = data.get('vehicle_no')
@@ -456,6 +474,9 @@ async def submit_kiosk_form(request: Request):
         success = update_kiosk_visit_details(vehicle_no, data)
         
         if success:
+            # UNLOCK kiosk — camera can resume
+            print(f"[UNLOCK] Kiosk released for: {KIOSK_LOCKED_VEHICLE}")
+            KIOSK_LOCKED_VEHICLE = None
             return {"status": "success", "message": "Visitor details logged successfully"}
         else:
             raise HTTPException(status_code=404, detail="No open visit found for this vehicle")
@@ -524,3 +545,22 @@ async def id_card_ocr(request: IDOCRRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing OCR: {str(e)}")
+
+# --- Kiosk Status & Cleanup ---
+
+@router.get("/kiosk-status")
+async def get_kiosk_status():
+    """Camera runner polls this to know if form is still being filled."""
+    global KIOSK_LOCKED_VEHICLE
+    if KIOSK_LOCKED_VEHICLE:
+        return {"status": "busy", "vehicle_no": KIOSK_LOCKED_VEHICLE}
+    return {"status": "ready"}
+
+@router.delete("/delete-visit/{visit_id}")
+async def delete_visit_endpoint(visit_id: int):
+    """Delete a visit entry (for cleanup from dashboard)."""
+    global KIOSK_LOCKED_VEHICLE
+    if delete_visit(visit_id):
+        KIOSK_LOCKED_VEHICLE = None  # Also clear any lock
+        return {"status": "success", "message": "Entry deleted"}
+    raise HTTPException(status_code=404, detail="Visit not found")

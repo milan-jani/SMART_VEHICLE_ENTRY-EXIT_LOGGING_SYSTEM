@@ -20,7 +20,11 @@ except ImportError:
     YOLO = None
 
 print("[INFO] Loading Offline AI Models (YOLOv8 & EasyOCR)...")
-reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+# Create a local directory for models to avoid permission/network checks
+local_model_dir = os.path.join(os.path.dirname(__file__), "models", "easyocr")
+os.makedirs(local_model_dir, exist_ok=True)
+
+reader = easyocr.Reader(['en'], gpu=False, verbose=False, model_storage_directory=local_model_dir, download_enabled=True)
 
 project_root = os.path.join(os.path.dirname(__file__), "..", "..")
 models_dir = os.path.join(project_root, "app", "device", "models")
@@ -29,7 +33,15 @@ yolo_model_path = os.path.join(models_dir, "license_plate_detector.pt")
 plate_detector = None
 if YOLO and os.path.exists(yolo_model_path):
     plate_detector = YOLO(yolo_model_path)
-    print("[SUCCESS] YOLOv8 Plate Detector Loaded (best.pt from ANPR repo)!")
+    print("[SUCCESS] YOLOv8 Plate Detector Loaded!")
+    # Warm up YOLO model with a dummy blank image to speed up first detection
+    try:
+        import numpy as np
+        dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
+        plate_detector(dummy_img, verbose=False)
+        print("[INFO] YOLO Model warmed up and ready.")
+    except Exception:
+        pass
 else:
     print(f"[WARNING] YOLO model not ready.")
 

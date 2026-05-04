@@ -246,21 +246,39 @@ def _extract_name(lines, result, doc_type):
 
 
 def _extract_dob(lines, result, doc_type):
-    """Extract Date of Birth."""
-    for line in lines:
-        upper = line['text'].upper().strip()
-        m = re.search(
-            r'(?:D\.?O\.?B\.?|DATE\s*OF\s*BIRTH)\s*[:：]\s*(\d{2}[-/]\d{2}[-/]\d{4})',
-            upper
-        )
-        if m:
-            result["dob"] = _format_date(m.group(1))
-            return
+    """Extract Date of Birth with enhanced label and pattern awareness."""
+    # Common labels for DOB
+    DOB_LABELS = [r'D\.?O\.?B\.?', r'DATE\s*OF\s*BIRTH', r'YEAR\s*OF\s*BIRTH', r'JANM\s*TI[THH]*I']
     
-    # Fallback to first date found that is not issue/validity
+    for i, line in enumerate(lines):
+        upper = line['text'].upper().strip()
+        
+        # 1. Look for label and date on the same line
+        for label in DOB_LABELS:
+            m = re.search(label + r'[\s:：]*(\d{2}[-/]\d{2}[-/]\d{4})', upper)
+            if m:
+                result["dob"] = _format_date(m.group(1))
+                return
+            
+            # Just year: "Year of Birth: 1990"
+            m_year = re.search(label + r'[\s:：]*(\d{4})', upper)
+            if m_year and "YEAR" in label:
+                result["dob"] = f"{m_year.group(1)}-01-01" # Default to Jan 1st if only year
+                return
+
+        # 2. Look for date on the NEXT line if label is found on current line
+        if any(re.search(label, upper) for label in DOB_LABELS):
+            if i + 1 < len(lines):
+                next_text = lines[i+1]['text'].upper().strip()
+                m_next = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4})', next_text)
+                if m_next:
+                    result["dob"] = _format_date(m_next.group(1))
+                    return
+
+    # Fallback to first date found that doesn't look like an issue/validity date
     for line in lines:
         upper = line['text'].upper()
-        if any(w in upper for w in ["ISSUE", "VALID", "EXPIR"]): continue
+        if any(w in upper for w in ["ISSUE", "VALID", "EXPIR", "FROM", "UNTIL"]): continue
         m = re.search(r'\b(\d{2}[-/]\d{2}[-/]\d{4})\b', upper)
         if m:
             result["dob"] = _format_date(m.group(1))
