@@ -6,10 +6,12 @@ import os
 from dotenv import load_dotenv
 
 # Load .env file if it exists, otherwise check .env.example
-if os.path.exists(".env"):
-    load_dotenv(".env")
-elif os.path.exists(".env.example"):
-    load_dotenv(".env.example")
+if not os.path.exists(".env") and os.path.exists(".env.example"):
+    import shutil
+    shutil.copy(".env.example", ".env")
+    print("[INFO] Created .env from .env.example template.")
+
+load_dotenv(".env")
 
 # Camera Configuration
 DEFAULT_CAMERA_INDEX = 0 # Change this: 0 = laptop camera, 1 = external camera, etc.
@@ -18,7 +20,10 @@ QUIT_KEY = 'q'     # Key to press to quit
 
 # ANPR API Configuration
 ANPR_MODE = "hybrid"  # options: 'local', 'api', 'hybrid'
-PLATE_RECOGNIZER_API_KEY = os.getenv("PLATE_RECOGNIZER_API_KEY", "")
+ANPR_KEYS = [
+    os.getenv("PLATE_RECOGNIZER_API_KEY_1", ""),
+    os.getenv("PLATE_RECOGNIZER_API_KEY_2", "be5b13c29a83097837f0a4983efc62a5e1bb6d98") # Fallback
+]
 PLATE_RECOGNIZER_ENDPOINT = "https://api.platerecognizer.com/v1/plate-reader/"
 
 # Azure Computer Vision API Configuration (Phase 6)

@@ -102,6 +102,10 @@ async def create_new_entry(entry: NewEntryRequest):
         else:
             visitor_type = "visitor"
             response_status = "new"
+            # LOCK kiosk for this visitor
+            global KIOSK_LOCKED_VEHICLE
+            KIOSK_LOCKED_VEHICLE = entry.vehicle_no
+            print(f"[LOCK] Kiosk locked for: {KIOSK_LOCKED_VEHICLE}")
         
         # Create new entry
         create_visit(
@@ -527,3 +531,24 @@ async def id_card_ocr(request: IDOCRRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing OCR: {str(e)}")
+
+# --- Kiosk Status & Cleanup ---
+KIOSK_LOCKED_VEHICLE = None
+
+@router.get("/kiosk-status")
+async def get_kiosk_status():
+    """Camera runner polls this to know if form is still being filled."""
+    global KIOSK_LOCKED_VEHICLE
+    if KIOSK_LOCKED_VEHICLE:
+        return {"status": "busy", "vehicle_no": KIOSK_LOCKED_VEHICLE}
+    return {"status": "ready"}
+
+@router.delete("/delete-visit/{visit_id}")
+async def delete_visit_endpoint(visit_id: int):
+    """Delete a visit entry (for cleanup from dashboard)."""
+    global KIOSK_LOCKED_VEHICLE
+    from .db_sqlite import delete_visit
+    if delete_visit(visit_id):
+        KIOSK_LOCKED_VEHICLE = None  # Also clear any lock
+        return {"status": "success", "message": "Entry deleted"}
+    raise HTTPException(status_code=404, detail="Visit not found")

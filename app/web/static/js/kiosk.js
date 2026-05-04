@@ -1,5 +1,6 @@
 /**
  * Kiosk Form Logic - Final Production Version
+ * Manually applied updates for Pi-Production branch
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -7,7 +8,17 @@ document.addEventListener('DOMContentLoaded', function() {
     initIDTypeLogic();
     startInactivityTimer();
     startStandbyPolling();
+    updateStandbyTime();
+    setInterval(updateStandbyTime, 1000);
 });
+
+function updateStandbyTime() {
+    const el = document.getElementById('current-time');
+    if (el) {
+        const now = new Date();
+        el.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+}
 
 // --- Polling for Standby Mode ---
 let pollingInterval;
@@ -74,6 +85,29 @@ function stopCamera() {
 
 function takeSnapshot() {
     if (!isCameraActive) return;
+    
+    // START 3 SECOND COUNTDOWN
+    const videoContainer = document.querySelector('.video-container');
+    const template = document.getElementById('counter-template');
+    const counter = template.content.cloneNode(true).querySelector('.camera-counter');
+    videoContainer.appendChild(counter);
+
+    let count = 3;
+    counter.textContent = count;
+    
+    const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            counter.textContent = count;
+        } else {
+            clearInterval(interval);
+            counter.remove();
+            performCapture();
+        }
+    }, 1000);
+}
+
+function performCapture() {
     const video = document.getElementById('camera-video');
     const canvas = document.getElementById('camera-canvas');
     canvas.width = video.videoWidth;
@@ -120,6 +154,7 @@ async function processOCR(filePath, side) {
             const d = result.data;
             if (d.name) document.getElementById('visitor_name').value = d.name;
             if (d.id_number) document.getElementById('id_number').value = d.id_number;
+            if (d.dob) document.getElementById('dob').value = d.dob;
             if (d.address) document.getElementById('address').value = d.address;
         } else {
             if (ocrStatus) ocrStatus.innerHTML = '<i class="fas fa-times"></i> Scan Failed';
@@ -136,6 +171,52 @@ function updateCaptureBox(side, filePath) {
     document.getElementById(`${side}-preview-container`).classList.add('hidden');
     document.getElementById(`id_card_${side}_path`).value = filePath;
 }
+
+// --- Virtual Numpad ---
+let currentNumpadInput = null;
+
+function openNumpad(inputId) {
+    currentNumpadInput = document.getElementById(inputId);
+    document.getElementById('numpad-display').textContent = currentNumpadInput.value;
+    document.getElementById('numpad-modal').classList.remove('hidden');
+}
+
+function closeNumpad() {
+    document.getElementById('numpad-modal').classList.add('hidden');
+}
+
+function numpadPress(num) {
+    const display = document.getElementById('numpad-display');
+    if (display.textContent.length < 15) {
+        display.textContent += num;
+        currentNumpadInput.value = display.textContent;
+    }
+}
+
+function numpadDelete() {
+    const display = document.getElementById('numpad-display');
+    display.textContent = display.textContent.slice(0, -1);
+    currentNumpadInput.value = display.textContent;
+}
+
+function numpadClear() {
+    document.getElementById('numpad-display').textContent = '';
+    currentNumpadInput.value = '';
+}
+
+// Bind phone input to numpad
+document.getElementById('phone').addEventListener('click', function() {
+    openNumpad('phone');
+});
+
+// Physical keyboard support for numpad when open
+document.addEventListener('keydown', function(e) {
+    if (document.getElementById('numpad-modal').classList.contains('hidden')) return;
+    
+    if (e.key >= '0' && e.key <= '9') numpadPress(e.key);
+    else if (e.key === 'Backspace') numpadDelete();
+    else if (e.key === 'Escape' || e.key === 'Enter') closeNumpad();
+});
 
 // UI Helpers
 function initChips() {
@@ -163,7 +244,15 @@ function initIDTypeLogic() {
 
 function startInactivityTimer() {
     let t;
-    const r = () => { clearTimeout(t); t = setTimeout(() => { if (window.location.search.includes('plate')) window.location.href='/api/kiosk'; }, 180000); };
+    const r = () => { 
+        clearTimeout(t); 
+        t = setTimeout(() => { 
+            if (window.location.search.includes('plate')) {
+                // Clear session and return to standby
+                window.location.href='/api/kiosk'; 
+            }
+        }, 180000); 
+    };
     ['mousedown', 'mousemove', 'keypress'].forEach(e => document.addEventListener(e, r));
     r();
 }

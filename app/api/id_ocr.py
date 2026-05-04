@@ -246,21 +246,25 @@ def _extract_name(lines, result, doc_type):
 
 
 def _extract_dob(lines, result, doc_type):
-    """Extract Date of Birth."""
+    """Extract Date of Birth with better regex supporting Aadhaar and other IDs."""
+    combined_text = " ".join([l['text'].upper() for l in lines])
+    
+    # Pattern 1: Labels like DOB: DD/MM/YYYY or Year of Birth: YYYY
+    m = re.search(
+        r'(?:D\.?O\.?B\.?|DATE\s*OF\s*BIRTH|YEAR\s*OF\s*BIRTH)\s*[:：]?\s*(\d{2}[-/]\d{2}[-/]\d{4}|\d{4})',
+        combined_text
+    )
+    if m:
+        result["dob"] = _format_date(m.group(1))
+        return
+
+    # Pattern 2: Floating dates (fallback)
     for line in lines:
         upper = line['text'].upper().strip()
-        m = re.search(
-            r'(?:D\.?O\.?B\.?|DATE\s*OF\s*BIRTH)\s*[:：]\s*(\d{2}[-/]\d{2}[-/]\d{4})',
-            upper
-        )
-        if m:
-            result["dob"] = _format_date(m.group(1))
-            return
-    
-    # Fallback to first date found that is not issue/validity
-    for line in lines:
-        upper = line['text'].upper()
-        if any(w in upper for w in ["ISSUE", "VALID", "EXPIR"]): continue
+        # Skip labels that aren't DOB
+        if any(w in upper for w in ["ISSUE", "VALID", "EXPIR", "DATE OF ISSUE"]): continue
+        
+        # Look for DD/MM/YYYY or DD-MM-YYYY
         m = re.search(r'\b(\d{2}[-/]\d{2}[-/]\d{4})\b', upper)
         if m:
             result["dob"] = _format_date(m.group(1))

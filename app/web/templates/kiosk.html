@@ -11,18 +11,38 @@
 <body>
 
     <div id="kiosk-standby" class="standby-overlay {% if plate %}hidden{% endif %}">
-        <div class="standby-content">
+        <div class="standby-card">
             <div class="standby-logo">
                 <i class="fas fa-shield-halved"></i>
+                <div class="logo-glow"></div>
             </div>
-            <h1>Welcome to Smart Gate</h1>
-            <p>Please drive your vehicle to the camera for detection.</p>
-            <div class="standby-loader">
-                <span></span><span></span><span></span>
+            
+            <div class="standby-text">
+                <h1>SMART GATE</h1>
+                <p class="subtitle">PREMIUM SECURITY ACCESS</p>
+                
+                <div class="status-indicator">
+                    <span class="pulse-dot"></span>
+                    SYSTEM ACTIVE
+                </div>
             </div>
-            <div class="standby-footer">
-                <i class="fas fa-camera"></i> Monitoring Active
+
+            <div class="standby-action">
+                <p>Please drive forward for identification</p>
+                <div class="action-visual">
+                    <i class="fas fa-car car-anim"></i>
+                    <i class="fas fa-chevron-right arrow-anim"></i>
+                    <i class="fas fa-camera"></i>
+                </div>
             </div>
+
+            <div class="standby-time" id="current-time">
+                <!-- Will be updated by JS -->
+            </div>
+        </div>
+
+        <div class="standby-footer-minimal">
+            INTELLIGENT VISITOR MANAGEMENT SYSTEM v2.0
         </div>
     </div>
 
@@ -366,6 +386,40 @@
         </div>
     </div>
 
-    <script src="/static/js/kiosk.js?v=1.4"></script>
+    <!-- Virtual Numpad Modal -->
+    <div id="numpad-modal" class="numpad-overlay hidden">
+        <div class="numpad-content">
+            <div class="numpad-header">
+                <h3>Enter Phone Number</h3>
+                <button type="button" class="close-numpad" onclick="closeNumpad()">&times;</button>
+            </div>
+            <div class="numpad-display-container">
+                <span id="numpad-display"></span>
+                <span class="numpad-cursor">|</span>
+            </div>
+            <div class="numpad-grid">
+                <button type="button" class="numpad-btn" onclick="numpadPress('1')">1</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('2')">2</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('3')">3</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('4')">4</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('5')">5</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('6')">6</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('7')">7</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('8')">8</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('9')">9</button>
+                <button type="button" class="numpad-btn numpad-clear" onclick="numpadClear()">CLR</button>
+                <button type="button" class="numpad-btn" onclick="numpadPress('0')">0</button>
+                <button type="button" class="numpad-btn numpad-del" onclick="numpadDelete()"><i class="fas fa-backspace"></i></button>
+            </div>
+            <button type="button" class="numpad-done" onclick="closeNumpad()">DONE</button>
+        </div>
+    </div>
+
+    <!-- Camera Countdown Element (added inside video container in JS, but defined here for style reference) -->
+    <template id="counter-template">
+        <div class="camera-counter">3</div>
+    </template>
+
+    <script src="/static/js/kiosk.js"></script>
 </body>
 </html>
