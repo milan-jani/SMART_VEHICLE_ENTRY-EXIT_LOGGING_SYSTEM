@@ -7,7 +7,17 @@ document.addEventListener('DOMContentLoaded', function() {
     initIDTypeLogic();
     startInactivityTimer();
     startStandbyPolling();
+    updateStandbyTime();
+    setInterval(updateStandbyTime, 1000);
 });
+
+function updateStandbyTime() {
+    const el = document.getElementById('current-time');
+    if (el) {
+        const now = new Date();
+        el.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+}
 
 // --- Polling for Standby Mode ---
 let pollingInterval;
@@ -72,7 +82,38 @@ function stopCamera() {
     isCameraActive = false;
 }
 
+let isCountingDown = false;
+
 function takeSnapshot() {
+    if (!isCameraActive || isCountingDown) return;
+    
+    isCountingDown = true;
+    const btnSnap = document.getElementById('btn-snap');
+    if (btnSnap) btnSnap.disabled = true;
+    
+    const counterEl = document.getElementById('camera-counter');
+    let count = 3;
+    
+    if (counterEl) {
+        counterEl.textContent = count;
+        counterEl.classList.remove('hidden');
+    }
+    
+    const countInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            if (counterEl) counterEl.textContent = count;
+        } else {
+            clearInterval(countInterval);
+            if (counterEl) counterEl.classList.add('hidden');
+            isCountingDown = false;
+            if (btnSnap) btnSnap.disabled = false;
+            executeSnapshot();
+        }
+    }, 1000);
+}
+
+function executeSnapshot() {
     if (!isCameraActive) return;
     const video = document.getElementById('camera-video');
     const canvas = document.getElementById('camera-canvas');
@@ -120,6 +161,7 @@ async function processOCR(filePath, side) {
             const d = result.data;
             if (d.name) document.getElementById('visitor_name').value = d.name;
             if (d.id_number) document.getElementById('id_number').value = d.id_number;
+            if (d.dob) document.getElementById('dob').value = d.dob;
             if (d.address) document.getElementById('address').value = d.address;
         } else {
             if (ocrStatus) ocrStatus.innerHTML = '<i class="fas fa-times"></i> Scan Failed';
@@ -184,4 +226,64 @@ document.getElementById('kiosk-form').addEventListener('submit', async function(
             setTimeout(() => { window.location.href = '/api/kiosk'; }, 2000);
         } else { overlay.classList.add('hidden'); alert("Save failed"); }
     } catch (err) { overlay.classList.add('hidden'); }
+});
+
+// --- Virtual Numpad Logic ---
+let currentTargetInputId = null;
+
+function openNumpad(inputId) {
+    currentTargetInputId = inputId;
+    const targetInput = document.getElementById(inputId);
+    const numpadDisplay = document.getElementById('numpad-display');
+    numpadDisplay.value = targetInput.value;
+    document.getElementById('numpad-overlay').classList.remove('hidden');
+}
+
+function closeNumpad() {
+    document.getElementById('numpad-overlay').classList.add('hidden');
+    currentTargetInputId = null;
+}
+
+function numpadPress(num) {
+    const display = document.getElementById('numpad-display');
+    // For phone numbers, limit to 10 digits
+    if (currentTargetInputId === 'phone' && display.value.length >= 10) return;
+    display.value += num;
+}
+
+function numpadBackspace() {
+    const display = document.getElementById('numpad-display');
+    display.value = display.value.slice(0, -1);
+}
+
+function numpadClear() {
+    document.getElementById('numpad-display').value = '';
+}
+
+function numpadDone() {
+    if (currentTargetInputId) {
+        const targetInput = document.getElementById(currentTargetInputId);
+        targetInput.value = document.getElementById('numpad-display').value;
+        // Trigger input event
+        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        if (currentTargetInputId === 'phone' && targetInput.value.length === 10) {
+            targetInput.setCustomValidity('');
+        }
+    }
+    closeNumpad();
+}
+
+// Support physical keyboard when Virtual Numpad is open
+document.addEventListener('keydown', function(e) {
+    if (!currentTargetInputId) return;
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        numpadDone();
+    } else if (e.key === 'Escape') {
+        closeNumpad();
+    } else if (e.key === 'Backspace') {
+        numpadBackspace();
+    } else if (/^[0-9]$/.test(e.key)) {
+        numpadPress(e.key);
+    }
 });

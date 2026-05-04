@@ -12,16 +12,30 @@
 
     <div id="kiosk-standby" class="standby-overlay {% if plate %}hidden{% endif %}">
         <div class="standby-content">
-            <div class="standby-logo">
-                <i class="fas fa-shield-halved"></i>
+            <div class="standby-card">
+                <div class="standby-logo">
+                    <div class="logo-glow"></div>
+                    <i class="fas fa-shield-halved"></i>
+                </div>
+                <div class="standby-text">
+                    <h1>SMART GATE</h1>
+                    <p class="subtitle">AUTOMATED SECURITY SYSTEM</p>
+                    <div class="status-indicator">
+                        <div class="pulse-dot"></div>
+                        <span>SYSTEM ACTIVE & MONITORING</span>
+                    </div>
+                </div>
+                <div class="standby-action">
+                    <p>Drive vehicle to the gate for detection</p>
+                    <div class="action-visual">
+                        <i class="fas fa-car-side car-anim"></i>
+                        <i class="fas fa-arrow-right-long arrow-anim"></i>
+                        <i class="fas fa-camera"></i>
+                    </div>
+                </div>
             </div>
-            <h1>Welcome to Smart Gate</h1>
-            <p>Please drive your vehicle to the camera for detection.</p>
-            <div class="standby-loader">
-                <span></span><span></span><span></span>
-            </div>
-            <div class="standby-footer">
-                <i class="fas fa-camera"></i> Monitoring Active
+            <div class="standby-footer-minimal">
+                <span id="current-time"></span> | SECURE ACCESS CONTROL
             </div>
         </div>
     </div>

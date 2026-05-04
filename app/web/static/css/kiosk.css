@@ -561,21 +561,12 @@ video {
     height: 60px;
     background: var(--primary);
     color: white;
-    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 2rem;
     font-weight: 700;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     z-index: 10;
-    animation: counterPop 1s ease-in-out infinite;
-}
-
-@keyframes counterPop {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.2); opacity: 0.8; }
-    100% { transform: scale(1); opacity: 1; }
 }
 
 .camera-error {
@@ -865,4 +856,206 @@ input.auto-filled, select.auto-filled, textarea.auto-filled {
     padding: 16px;
     font-size: 1.2rem;
     justify-content: center;
+}
+
+/* ============================================================
+   PREMIUM STANDBY SCREEN & VIRTUAL NUMPAD IMPROVEMENTS
+   ============================================================ */
+
+/* Premium Standby Overlay */
+.standby-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle at center, #0a3d47 0%, #020617 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    transition: opacity 0.5s;
+    color: white;
+}
+
+.standby-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 60px 80px;
+    border-radius: 40px;
+    text-align: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    animation: standbyIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes standbyIn {
+    from { opacity: 0; transform: translateY(40px) scale(0.9); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.standby-logo {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 30px;
+    background: linear-gradient(135deg, var(--primary) 0%, #2dd4bf 100%);
+    border-radius: 35% 65% 70% 30% / 30% 30% 70% 70%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.5rem;
+    color: white;
+    box-shadow: 0 0 40px rgba(13, 148, 136, 0.4);
+    animation: logoBlob 10s infinite alternate;
+}
+
+.logo-glow {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: inherit;
+    filter: blur(20px);
+    opacity: 0.5;
+    z-index: -1;
+}
+
+@keyframes logoBlob {
+    0% { border-radius: 35% 65% 70% 30% / 30% 30% 70% 70%; }
+    100% { border-radius: 65% 35% 30% 70% / 70% 70% 30% 30%; }
+}
+
+.standby-text h1 {
+    font-size: 4rem;
+    font-weight: 900;
+    letter-spacing: 8px;
+    color: white;
+    margin: 0;
+    text-shadow: 0 0 20px rgba(255,255,255,0.2);
+}
+
+.subtitle {
+    font-size: 1rem;
+    color: #94a3b8;
+    letter-spacing: 5px;
+    font-weight: 600;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+}
+
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 10px 24px;
+    border-radius: 100px;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.pulse-dot {
+    width: 10px;
+    height: 10px;
+    background: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #10b981;
+    animation: pulse 1.5s infinite;
+}
+
+.standby-action {
+    margin-top: 60px;
+}
+
+.standby-action p {
+    color: #cbd5e1;
+    font-size: 1.1rem;
+    margin-bottom: 30px;
+}
+
+.action-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    font-size: 2.5rem;
+    color: #475569;
+}
+
+.car-anim {
+    color: var(--primary);
+    animation: carFloat 2s ease-in-out infinite;
+}
+
+.arrow-anim {
+    color: #334155;
+    animation: arrowSide 1.5s infinite;
+}
+
+@keyframes carFloat {
+    0%, 100% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+}
+
+@keyframes arrowSide {
+    0% { transform: translateX(-10px); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateX(10px); opacity: 0; }
+}
+
+.standby-footer-minimal {
+    position: absolute;
+    bottom: 40px;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+/* Numpad Overrides for Premium Look */
+.numpad-content {
+    background: white;
+    border-radius: 30px;
+    width: 400px;
+    padding: 10px;
+}
+
+.numpad-header h3 {
+    font-weight: 800;
+    color: var(--secondary);
+}
+
+.numpad-display-container {
+    background: #f1f5f9;
+    border-radius: 20px;
+    margin: 10px;
+}
+
+#numpad-display {
+    color: var(--secondary);
+}
+
+.numpad-grid {
+    gap: 15px;
+    padding: 15px;
+}
+
+.numpad-btn {
+    border-radius: 20px;
+    height: 75px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.numpad-btn:hover {
+    background: #f8fafc;
+    border-color: var(--primary);
+}
+
+.numpad-done {
+    background: var(--primary);
+    border-radius: 20px;
+    height: 60px;
+    font-weight: 800;
+    letter-spacing: 1px;
 }

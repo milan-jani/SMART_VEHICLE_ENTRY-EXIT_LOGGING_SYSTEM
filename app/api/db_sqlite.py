@@ -398,5 +398,15 @@ def update_kiosk_visit_details(vehicle_no: str, details: Dict[str, Any]) -> bool
     conn.close()
     return success
 
+def delete_visit(visit_id: int) -> bool:
+    """Deletes a visit entry by ID. Used for dashboard cleanup."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM visits WHERE id = ?", (visit_id,))
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
+
 # Initialize the DB schema when this module is imported
 init_db()
