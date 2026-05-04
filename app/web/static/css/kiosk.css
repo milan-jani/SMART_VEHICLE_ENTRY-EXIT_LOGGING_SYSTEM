@@ -1101,8 +1101,9 @@ input.auto-filled, select.auto-filled, textarea.auto-filled {
 }
 
 .numpad-btn:active {
-    background: var(--border);
-    transform: scale(0.95);
+    background: #cbd5e1;
+    transform: scale(0.92);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .numpad-btn.btn-danger {

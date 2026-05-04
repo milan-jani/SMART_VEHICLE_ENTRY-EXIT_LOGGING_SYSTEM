@@ -171,31 +171,45 @@ let currentNumpadInput = null;
 
 function openNumpad(inputId) {
     currentNumpadInput = document.getElementById(inputId);
+    if (!currentNumpadInput) return;
+    
     document.getElementById('numpad-display').textContent = currentNumpadInput.value;
     document.getElementById('numpad-modal').classList.remove('hidden');
+    currentNumpadInput.classList.add('numpad-active');
 }
 
 function closeNumpad() {
     document.getElementById('numpad-modal').classList.add('hidden');
+    if (currentNumpadInput) currentNumpadInput.classList.remove('numpad-active');
 }
 
 function numpadPress(num) {
     const display = document.getElementById('numpad-display');
     if (display.textContent.length < 15) {
         display.textContent += num;
-        currentNumpadInput.value = display.textContent;
+        if (currentNumpadInput) {
+            currentNumpadInput.value = display.textContent;
+            // Trigger change event for validation if any
+            currentNumpadInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
     }
 }
 
 function numpadDelete() {
     const display = document.getElementById('numpad-display');
     display.textContent = display.textContent.slice(0, -1);
-    currentNumpadInput.value = display.textContent;
+    if (currentNumpadInput) {
+        currentNumpadInput.value = display.textContent;
+        currentNumpadInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 }
 
 function numpadClear() {
     document.getElementById('numpad-display').textContent = '';
-    currentNumpadInput.value = '';
+    if (currentNumpadInput) {
+        currentNumpadInput.value = '';
+        currentNumpadInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 }
 
 // Bind phone input to numpad

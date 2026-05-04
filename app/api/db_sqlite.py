@@ -117,6 +117,7 @@ def init_db():
 
 def create_visit(vehicle_no: str, image_path: str = "", visitor_type: str = "unknown") -> Optional[int]:
     """Creates a new visit record (entry). Returns the new visit ID."""
+    vehicle_no = vehicle_no.strip().upper()
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -134,6 +135,7 @@ def create_visit(vehicle_no: str, image_path: str = "", visitor_type: str = "unk
 
 def close_visit(vehicle_no: str) -> bool:
     """Marks the latest open visit for a vehicle as 'exited'."""
+    vehicle_no = vehicle_no.strip().upper()
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -173,6 +175,7 @@ def update_visit_details(visit_id: int, name: str, phone: str, purpose: str, id_
 
 def update_latest_visit_details_by_vehicle(vehicle_no: str, name: str, phone: str, purpose: str) -> bool:
     """Compatibility function: Updates details for the latest open visit of a vehicle."""
+    vehicle_no = vehicle_no.strip().upper()
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -221,6 +224,7 @@ def get_open_visits() -> List[Dict[str, Any]]:
 
 def find_open_visit_by_vehicle(vehicle_no: str) -> Optional[Dict[str, Any]]:
     """Finds an open ('inside') visit for a specific vehicle."""
+    vehicle_no = vehicle_no.strip().upper()
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -243,6 +247,7 @@ def is_regular_user(vehicle_no: str) -> bool:
 
 def get_regular_user(vehicle_no: str) -> Optional[Dict[str, Any]]:
     """Retrieves regular user details if they exist in the whitelist."""
+    vehicle_no = vehicle_no.strip().upper()
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -303,6 +308,7 @@ def get_all_regular_users() -> List[Dict[str, Any]]:
 
 def delete_regular_user(vehicle_no: str) -> bool:
     """Removes a vehicle from the regular users whitelist."""
+    vehicle_no = vehicle_no.strip().upper()
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -361,6 +367,7 @@ def delete_visit(visit_id: int) -> bool:
 
 def update_kiosk_visit_details(vehicle_no: str, details: Dict[str, Any]) -> bool:
     """Updates all kiosk visitor details for the latest open visit of a vehicle."""
+    vehicle_no = vehicle_no.strip().upper()
     conn = get_db_connection()
     cursor = conn.cursor()
     

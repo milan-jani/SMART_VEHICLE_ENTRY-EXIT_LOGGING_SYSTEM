@@ -455,7 +455,7 @@ async def submit_kiosk_form(request: Request):
     """
     try:
         data = await request.json()
-        vehicle_no = data.get('vehicle_no')
+        vehicle_no = data.get('vehicle_no', '').strip().upper()
         
         if not vehicle_no:
             raise HTTPException(status_code=400, detail="Vehicle number is required")
