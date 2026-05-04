@@ -33,15 +33,9 @@ function startStandbyPolling() {
             if (data.status === 'success' && data.vehicles && data.vehicles.length > 0) {
                 const latest = data.vehicles[0];
                 
-                // 1. Check if it's pending
                 const isPending = !latest.visitor_name || latest.visitor_name.trim() === "" || latest.visitor_name.toLowerCase() === "pending";
                 
-                // 2. Check if it's RECENT (within last 60 seconds)
-                const entryTime = new Date(latest.in_time).getTime();
-                const now = new Date().getTime();
-                const isRecent = Math.abs(now - entryTime) < 600000; // 10 minutes (Relaxed for Pi drift)
-
-                if (isPending && isRecent) {
+                if (isPending) {
                     console.log(`[TRIGGER] New detection: ${latest.vehicle_no}`);
                     clearInterval(pollingInterval);
                     window.location.replace(`/api/kiosk?plate=${latest.vehicle_no}`);

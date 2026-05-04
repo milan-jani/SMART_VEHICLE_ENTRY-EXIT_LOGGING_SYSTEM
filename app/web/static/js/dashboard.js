@@ -141,10 +141,10 @@ function openVisitorDetail(index) {
 
 async function loadWorkers() {
     try {
-        const resp = await fetch(`${API_BASE}/regular-users?t=${new Date().getTime()}`);
+        const resp = await fetch(`${API_BASE}/workers?t=${new Date().getTime()}`);
         const data = await resp.json();
         if (data.status === 'success') {
-            updateWorkersTable(data.users);
+            updateWorkersTable(data.workers);
         }
     } catch (e) { console.error("Worker Load Error:", e); }
 }
@@ -177,7 +177,7 @@ function updateWorkersTable(workers) {
 async function deleteWorker(plate) {
     if (!confirm(`Remove ${plate} from authorized workers?`)) return;
     try {
-        const resp = await fetch(`${API_BASE}/regular-user/${plate}`, { method: 'DELETE' });
+        const resp = await fetch(`${API_BASE}/delete-worker/${plate}`, { method: 'DELETE' });
         if (resp.ok) loadWorkers();
     } catch (e) { alert("Error removing worker"); }
 }
@@ -185,18 +185,18 @@ async function deleteWorker(plate) {
 async function submitNewWorker() {
     const data = {
         vehicle_no: document.getElementById('new-worker-plate').value,
-        user_name: document.getElementById('new-worker-name').value,
+        name: document.getElementById('new-worker-name').value,
         phone: document.getElementById('new-worker-phone').value,
-        flat_no: document.getElementById('new-worker-dept').value
+        department: document.getElementById('new-worker-dept').value
     };
     
-    if (!data.vehicle_no || !data.user_name) {
+    if (!data.vehicle_no || !data.name) {
         alert("Plate and Name are required");
         return;
     }
 
     try {
-        const resp = await fetch(`${API_BASE}/regular-user`, {
+        const resp = await fetch(`${API_BASE}/add-worker`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(data)
