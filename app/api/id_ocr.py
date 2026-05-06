@@ -129,7 +129,7 @@ def _detect_document_type(lines):
     # Detect by ID number patterns if header text not found
     for line in lines:
         text = line['text'].upper()
-        if re.search(r'\b[A-Z]{2}\d{2}\s?\d{11,13}\b', text):
+        if re.search(r'\b[A-Z]{2}[-\s]?\d{2}[-\s]?\d{11,13}\b', text):
             return "DL"
         if re.search(r'\b\d{4}\s\d{4}\s\d{4}\b', text):
             return "AADHAAR"
@@ -184,8 +184,8 @@ def _extract_id_number(lines, result):
             break
         text = line['text'].upper().strip()
         
-        # DL number: GJ25 20230003704
-        m = re.search(r'\b([A-Z]{2}\d{2}\s?\d{11,13})\b', text)
+        # DL number: GJ25 20230003704 or GJ10-20210010550
+        m = re.search(r'\b([A-Z]{2}[-\s]?\d{2}[-\s]?\d{11,13})\b', text)
         if m:
             result["id_number"] = m.group(1)
             continue
@@ -258,7 +258,20 @@ def _extract_dob(lines, result, doc_type):
         result["dob"] = _format_date(m.group(1))
         return
 
-    # Pattern 2: Floating dates (fallback)
+    # Pattern 2: Scan lines and look ahead (handles interleaved Azure bounding boxes like 'Blood Group')
+    DOB_LABELS = [r'D\.?O\.?B\.?', r'DATE\s*OF\s*BIRTH', r'YEAR\s*OF\s*BIRTH', r'JANM\s*TI[THH]*I']
+    for i, line in enumerate(lines):
+        upper = line['text'].upper().strip()
+        if any(re.search(label, upper) for label in DOB_LABELS):
+            for offset in range(1, 4):  # Check next 3 lines
+                if i + offset < len(lines):
+                    next_text = lines[i+offset]['text'].upper().strip()
+                    m_next = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4})', next_text)
+                    if m_next:
+                        result["dob"] = _format_date(m_next.group(1))
+                        return
+
+    # Pattern 3: Floating dates (fallback to first date found that doesn't look like an issue/validity date)
     for line in lines:
         upper = line['text'].upper().strip()
         # Skip labels that aren't DOB
