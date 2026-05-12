@@ -763,31 +763,19 @@ video {
     background: var(--primary-light);
 }
 
-.suggestion-name {
-    display: block;
-    font-weight: 600;
-    color: var(--secondary);
-    font-size: 0.95rem;
-}
-
-.suggestion-dept {
-    display: block;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-}
-
 .keyboard-wrapper {
     position: fixed;
     bottom: 0;
     left: 0;
-    width: 100%;
-    height: 350px;
-    background: #d1d5db;
-    box-shadow: 0 -5px 20px rgba(0,0,0,0.2);
+    right: 0;
+    background: #f1f5f9;
+    border-top: 2px solid #cbd5e1;
+    box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
     z-index: 3000;
+    padding: 15px;
     display: flex;
-    flex-direction: column;
-    animation: slideUpKeyboard 0.3s ease-out;
+    justify-content: center;
+    animation: slideUpKeyboard 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes slideUpKeyboard {
@@ -796,32 +784,27 @@ video {
 }
 
 .keyboard-header {
-    background: #9ca3af;
-    padding: 8px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: #1f2937;
-    font-weight: 700;
+    padding: 0 5px 10px;
+    border-bottom: 1px solid #cbd5e1;
+    margin-bottom: 10px;
 }
 
-.close-keyboard {
-    background: #ef4444;
-    color: white;
-    border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    font-size: 1.2rem;
-    cursor: pointer;
+.keyboard-header span {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #475569;
+    text-transform: uppercase;
 }
 
 .keys-grid {
-    padding: 10px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    flex-grow: 1;
+    width: 700px;
+    max-width: 95vw;
 }
 
 .keyboard-row {
@@ -834,57 +817,54 @@ video {
 .key {
     background: white;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     height: 100%;
     flex-grow: 1;
-    max-width: 60px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1f2937;
-    box-shadow: 0 2px 0 #9ca3af;
+    max-width: 65px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1e293b;
+    box-shadow: 0 4px 0 #cbd5e1;
     cursor: pointer;
-    user-select: none;
+    transition: all 0.1s;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .key:active {
-    background: #e5e7eb;
+    background: #f1f5f9;
     transform: translateY(2px);
-    box-shadow: none;
+    box-shadow: 0 2px 0 #cbd5e1;
 }
 
 .key.wide {
     max-width: 120px;
+    background: #e2e8f0;
 }
 
 .key.extra-wide {
-    max-width: 400px;
+    max-width: 450px;
 }
 
 .key.special {
-    background: #9ca3af;
-    color: white;
+    background: #e2e8f0;
 }
 
 .key.backspace {
-    background: #f87171;
-    color: white;
+    background: #fecaca;
+    color: #dc2626;
 }
 
 .key.done {
     background: var(--primary);
     color: white;
+    max-width: 120px;
 }
 
-/* Numpad Mode for Keys */
+/* Numpad Mode */
 .keys-grid.numpad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    max-width: 400px;
-    margin: 0 auto;
-    gap: 15px;
+    width: 320px;
 }
 
 .keys-grid.numpad .keyboard-row {
