@@ -1,14 +1,14 @@
 #!/bin/bash
 
-echo "🚀 Starting Smart Vehicle Entry-Exit Logging System..."
+echo "Starting Smart Vehicle Entry-Exit Logging System..."
 
 # 1. Stop any existing containers
 echo "Stopping existing containers..."
-docker-compose down
+docker compose down
 
 # 2. Start Docker containers (Backend & Camera)
 echo "Starting Backend and Camera Services..."
-docker-compose up -d
+docker compose up -d
 
 # 3. Start IR Sensor Handler in Background
 echo "Initializing IR Sensor Hardware..."
@@ -18,7 +18,7 @@ pkill -f "hardware/ir_handler.py" || true
 python3 hardware/ir_handler.py > ir_handler.log 2>&1 &
 IR_PID=$!
 
-echo "✅ System is UP!"
+echo "System is UP!"
 echo "--------------------------------------------------"
 echo "Backend/Camera: Running in Docker (network: host)"
 echo "IR Handler: Running on Host (PID: $IR_PID)"
@@ -27,4 +27,4 @@ echo "--------------------------------------------------"
 echo "Press Ctrl+C to stop viewing container logs..."
 
 # Show docker logs
-docker-compose logs -f
+docker compose logs -f
