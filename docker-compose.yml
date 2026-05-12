@@ -5,34 +5,19 @@
 services:
   backend:
     build: .
-    container_name: vehicle-logging-backend
+    container_name: vehicle-logging-system
     restart: unless-stopped
-    network_mode: "host"
+    ports:
+      - "8000:8000"
     volumes:
+      # Persist database and photos outside container
       - ./data:/app/data
+      # Mount .env file for API keys
       - ./.env:/app/.env:ro
     environment:
-      - API_BASE_URL=http://localhost:8000
-
-  camera:
-    build: .
-    container_name: vehicle-logging-camera
-    restart: unless-stopped
-    depends_on:
-      - backend
-    network_mode: "host"
-    volumes:
-      - ./data:/app/data
-      - ./.env:/app/.env:ro
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - /home/milanjani/.Xauthority:/tmp/.Xauthority
-    environment:
-      - API_BASE_URL=http://localhost:8000
-      - DISPLAY=:0
-      - XAUTHORITY=/tmp/.Xauthority
+      - API_BASE_URL=http://0.0.0.0:8000
+    # Give access to USB cameras and GPIO (for future IR sensor use)
     devices:
       - /dev/video0:/dev/video0
       - /dev/video1:/dev/video1
     privileged: true
-    # This command starts the camera runner
-    command: python3 -u -m app.device.device_runner

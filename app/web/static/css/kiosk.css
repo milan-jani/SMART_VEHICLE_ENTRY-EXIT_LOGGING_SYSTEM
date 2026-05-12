@@ -1059,3 +1059,136 @@ input.auto-filled, select.auto-filled, textarea.auto-filled {
     font-weight: 800;
     letter-spacing: 1px;
 }
+/* Virtual Keyboard & Numpad Styles (Centered Floating Bottom) */
+.virtual-keyboard {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: fit-content;
+    background: #f1f5f9;
+    padding: 12px;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.4);
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    animation: slideUpKeyboard 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.close-kbd-float {
+    position: absolute;
+    top: -15px;
+    right: -15px;
+    width: 35px;
+    height: 35px;
+    background: #ef4444;
+    color: white;
+    border: 3px solid #f1f5f9;
+    border-radius: 50%;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    z-index: 2100;
+}
+
+@keyframes slideUpKeyboard {
+    from { transform: translate(-50%, 100%); }
+    to { transform: translate(-50%, 0); }
+}
+
+.keyboard-active .form-card {
+    margin-bottom: 450px;
+}
+
+.keyboard-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+.key {
+    background: white;
+    border: none;
+    border-radius: 8px;
+    height: 60px;
+    min-width: 48px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1e293b;
+    box-shadow: 0 4px 0 #cbd5e1;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.05s;
+}
+
+.key:active {
+    background: #f1f5f9;
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #cbd5e1;
+}
+
+.key.wide {
+    max-width: 120px;
+    background: #e2e8f0;
+}
+
+.key.space {
+    flex: 4;
+}
+
+.key.done {
+    background: var(--primary);
+    color: white;
+    max-width: 120px;
+}
+
+.keyboard-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 600px; /* Standard width for QWERTY */
+    max-width: 90vw;
+}
+
+/* Numpad specific */
+.numpad-container {
+    width: 320px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.keyboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 5px 5px;
+    border-bottom: 1px solid #cbd5e1;
+    margin-bottom: 5px;
+}
+
+.keyboard-header span {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+}
+
+.close-kbd {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    color: #475569;
+    padding: 5px;
+}

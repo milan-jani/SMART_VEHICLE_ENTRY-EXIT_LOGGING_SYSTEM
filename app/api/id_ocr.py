@@ -129,7 +129,7 @@ def _detect_document_type(lines):
     # Detect by ID number patterns if header text not found
     for line in lines:
         text = line['text'].upper()
-        if re.search(r'\b[A-Z]{2}\d{2}\s?\d{11,13}\b', text):
+        if re.search(r'\b[A-Z]{2}[-\s]?\d{2}[-\s]?\d{11,13}\b', text):
             return "DL"
         if re.search(r'\b\d{4}\s\d{4}\s\d{4}\b', text):
             return "AADHAAR"
@@ -184,8 +184,8 @@ def _extract_id_number(lines, result):
             break
         text = line['text'].upper().strip()
         
-        # DL number: GJ25 20230003704
-        m = re.search(r'\b([A-Z]{2}\d{2}\s?\d{11,13})\b', text)
+        # DL number: GJ25 20230003704 or GJ10-20210010550
+        m = re.search(r'\b([A-Z]{2}[-\s]?\d{2}[-\s]?\d{11,13})\b', text)
         if m:
             result["id_number"] = m.group(1)
             continue
@@ -207,18 +207,28 @@ def _extract_id_number(lines, result):
 def _extract_name(lines, result, doc_type):
     """Extract person's name — label-based first, then heuristic fallback."""
     
-    for line in lines:
+    for i, line in enumerate(lines):
         upper = line['text'].upper().strip()
         
+        # 1. Name is on the same line: "Name: DINESH"
         m = re.match(r'NAME\s*[:：]?\s+(.+)', upper)
         if m:
             name_val = m.group(1).strip()
-            # Clean noise
             name_val = re.sub(r"HOLDER.*", "", name_val, flags=re.IGNORECASE).strip()
             name_val = re.sub(r"[^A-Za-z\s]", "", name_val).strip()
             if len(name_val) > 2:
                 result["name"] = name_val.title()
-            return
+                return
+                
+        # 2. Name is on the next line
+        if re.match(r'^NAME\s*[:：]?$', upper):
+            if i + 1 < len(lines):
+                next_text = lines[i+1]['text'].strip()
+                if not re.search(r'\d', next_text) and len(next_text.split()) >= 2:
+                    name_val = re.sub(r"[^A-Za-z\s]", "", next_text).strip()
+                    if len(name_val) > 2:
+                        result["name"] = name_val.title()
+                        return
     
     # Heuristic fallback
     SKIP_WORDS = {
@@ -228,7 +238,8 @@ def _extract_name(lines, result, doc_type):
         "HOLDER", "SIGNATURE", "BLOOD", "GROUP", "ORGAN", "DONOR",
         "SON", "DAUGHTER", "WIFE", "VALIDITY", "INCOME", "TAX",
         "DEPARTMENT", "PERMANENT", "ACCOUNT", "ADDRESS", "ADD",
-        "TRANSPORT", "STATE", "DATE", "BIRTH", "FATHER", "HUSBAND"
+        "TRANSPORT", "STATE", "DATE", "BIRTH", "FATHER", "HUSBAND",
+        "GJ", "NT"
     }
     
     for line in lines:
@@ -266,14 +277,15 @@ def _extract_dob(lines, result, doc_type):
                 result["dob"] = f"{m_year.group(1)}-01-01" # Default to Jan 1st if only year
                 return
 
-        # 2. Look for date on the NEXT line if label is found on current line
+        # 2. Look for date on the NEXT few lines if label is found on current line
         if any(re.search(label, upper) for label in DOB_LABELS):
-            if i + 1 < len(lines):
-                next_text = lines[i+1]['text'].upper().strip()
-                m_next = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4})', next_text)
-                if m_next:
-                    result["dob"] = _format_date(m_next.group(1))
-                    return
+            for offset in range(1, 4):  # Check next 3 lines
+                if i + offset < len(lines):
+                    next_text = lines[i+offset]['text'].upper().strip()
+                    m_next = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4})', next_text)
+                    if m_next:
+                        result["dob"] = _format_date(m_next.group(1))
+                        return
 
     # Fallback to first date found that doesn't look like an issue/validity date
     for line in lines:

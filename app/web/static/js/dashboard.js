@@ -132,34 +132,68 @@ function openVisitorDetail(index) {
     const v = allVehicles[index];
     if (!v) return;
 
+    // Vehicle Info
     document.getElementById('vdetail-plate').textContent = v.vehicle_no;
+    document.getElementById('vdetail-type').textContent = v.visitor_type || 'Guest';
+    updateDetailImage('vdetail-vehicle-img', v.vehicle_image_path);
+
+    // Visitor Info
     document.getElementById('vdetail-name').textContent = v.visitor_name || 'Not provided';
     document.getElementById('vdetail-phone').textContent = v.phone || '-';
-    document.getElementById('vdetail-type').textContent = v.visitor_type || 'visitor';
-    
+    document.getElementById('vdetail-company').textContent = v.company || '-';
+    document.getElementById('vdetail-dob').textContent = v.dob || '-';
+
+    // ID Info
+    document.getElementById('vdetail-idtype').textContent = v.id_type || '-';
+    document.getElementById('vdetail-idno').textContent = v.id_number || '-';
+    updateDetailImage('vdetail-idfront-img', v.id_card_front_path);
+    updateDetailImage('vdetail-idback-img', v.id_card_back_path);
+
+    // Address Info
+    document.getElementById('vdetail-street').textContent = v.address_street || v.address || '-';
+    document.getElementById('vdetail-city').textContent = v.address_city || '-';
+    document.getElementById('vdetail-state').textContent = v.address_state || '-';
+
+    // Visit Info
+    document.getElementById('vdetail-purpose').textContent = v.purpose || '-';
+    document.getElementById('vdetail-meet').textContent = v.person_to_meet || '-';
+    document.getElementById('vdetail-flat').textContent = v.flat_no || '-';
+    document.getElementById('vdetail-persons').textContent = v.num_persons || '1';
+    document.getElementById('vdetail-exp-duration').textContent = v.expected_duration || '-';
+    document.getElementById('vdetail-remarks').textContent = v.remarks || '-';
+
+    // Timestamps
     document.getElementById('vdetail-in').textContent = v.in_time;
     document.getElementById('vdetail-out').textContent = v.out_time || '-';
-    document.getElementById('vdetail-status').innerHTML = v.status === 'inside' ? 
+    document.getElementById('vdetail-actual-duration').textContent = v.duration || '-';
+    
+    // Status Badge
+    const statusEl = document.getElementById('vdetail-status');
+    statusEl.innerHTML = v.status === 'inside' ? 
         '<span class="status-badge status-in">Inside</span>' : 
         '<span class="status-badge status-out">Exited</span>';
 
-    // Set images
-    const vImg = document.getElementById('vdetail-vehicle-img');
-    if (v.vehicle_image_path) {
-        vImg.src = v.vehicle_image_path.replace(/\\/g, '/');
-        vImg.classList.remove('hidden');
-        document.getElementById('vdetail-vehicle-img-na').classList.add('hidden');
-    } else {
-        vImg.classList.add('hidden');
-        document.getElementById('vdetail-vehicle-img-na').classList.remove('hidden');
-    }
-
-    // Modal display
-    document.getElementById('visitor-detail-modal').classList.remove('hidden');
+    // Show modal
+    document.getElementById('visitor-detail-modal').classList.add('show');
 }
 
 function closeVisitorDetail() {
-    document.getElementById('visitor-detail-modal').classList.add('hidden');
+    document.getElementById('visitor-detail-modal').classList.remove('show');
+}
+
+function updateDetailImage(elId, path) {
+    const img = document.getElementById(elId);
+    const na = document.getElementById(elId + '-na');
+    if (path) {
+        // Fix path if needed (e.g. static/...)
+        const src = path.startsWith('/') ? path : '/' + path;
+        img.src = src.replace(/\\/g, '/');
+        img.classList.remove('hidden');
+        if (na) na.classList.add('hidden');
+    } else {
+        img.classList.add('hidden');
+        if (na) na.classList.remove('hidden');
+    }
 }
 
 // --- Worker Management ---
