@@ -762,66 +762,80 @@ video {
     background: var(--primary-light);
 }
 
-/* Docked Virtual Keyboard Styles from Temp */
+/* Floating Glassmorphism Keyboard from Image */
 .virtual-keyboard {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: #e2e8f0;
-    border-top: 1px solid #cbd5e1;
-    box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: 90vw;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
     z-index: 3000;
-    padding: 10px 0;
+    padding: 25px;
     display: flex;
-    justify-content: center;
-    animation: slideUpKeyboard 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-direction: column;
+    animation: popInKeyboard 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popInKeyboard {
+    from { transform: translateX(-50%) translateY(50px) scale(0.9); opacity: 0; }
+    to { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
 }
 
 .keyboard-grid {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    width: 650px;
-    max-width: 98vw;
+    gap: 10px;
+    width: auto;
 }
 
 .close-kbd-float {
     position: absolute;
-    top: -15px;
-    right: 15px;
+    top: -10px;
+    right: -10px;
     width: 35px;
     height: 35px;
     background: #ef4444;
     color: white;
-    border: none;
+    border: 2px solid white;
     border-radius: 50%;
     font-size: 1.2rem;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     z-index: 3001;
+    transition: transform 0.2s;
+}
+
+.close-kbd-float:hover {
+    transform: scale(1.1);
 }
 
 .keyboard-row {
     display: flex;
     justify-content: center;
-    gap: 6px;
-    height: 50px;
+    gap: 8px;
+    height: 60px;
 }
 
 .key {
-    background: white;
-    border: none;
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
     height: 100%;
-    flex-grow: 1;
-    max-width: 65px;
-    font-size: 1.2rem;
+    min-width: 55px;
+    padding: 0 15px;
+    font-size: 1.3rem;
     font-weight: 700;
-    color: #1e293b;
+    color: #334155;
     box-shadow: 0 4px 0 #cbd5e1;
     cursor: pointer;
     transition: all 0.1s;
@@ -831,34 +845,41 @@ video {
 }
 
 .key:active {
-    background: #f1f5f9;
     transform: translateY(2px);
     box-shadow: 0 2px 0 #cbd5e1;
+    background: #f8fafc;
 }
 
 .key.wide {
-    max-width: 120px;
-    background: #e2e8f0;
+    min-width: 100px;
+    background: #f1f5f9;
 }
 
 .key.extra-wide {
-    max-width: 450px;
+    min-width: 300px;
 }
 
 .key.backspace {
-    background: #fecaca;
-    color: #dc2626;
+    background: #fee2e2;
+    color: #ef4444;
+    border-color: #fecaca;
 }
 
 .key.done {
     background: var(--primary);
     color: white;
-    max-width: 120px;
+    min-width: 120px;
+    border: none;
+    box-shadow: 0 4px 0 #0d9488;
 }
 
-/* Numpad specific */
+/* Numpad Mode */
 .keyboard-grid.numpad {
-    width: 320px;
+    width: 350px;
+}
+
+.keyboard-grid.numpad .key {
+    min-width: 80px;
 }
 
 .keys-grid.numpad .keyboard-row {
