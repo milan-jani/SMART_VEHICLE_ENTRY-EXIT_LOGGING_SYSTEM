@@ -237,9 +237,11 @@ function openKeyboard(input) {
     renderKeys(layoutType);
     keyboard.classList.remove('hidden');
     
-    // Auto-scroll input into view (Center of screen)
+    // Auto-scroll input into view (Top/Start of screen to avoid overlap)
     setTimeout(() => {
-        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        input.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+        // Small additional scroll to give some top margin
+        window.scrollBy(0, -100);
     }, 150);
 }
 
