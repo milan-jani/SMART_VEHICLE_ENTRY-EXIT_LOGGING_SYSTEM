@@ -100,6 +100,7 @@ def run_device_workflow():
         print("[READY] Camera feed active. Waiting for captures...\n", flush=True)
         
         last_kiosk_check = 0
+        last_ir_check = 0
         kiosk_ready = True
 
         while True:
@@ -117,8 +118,11 @@ def run_device_workflow():
             cv2.imshow("Smart Gate - Camera Feed", frame)
             key = cv2.waitKey(1) & 0xFF
             
-            # Check for Physical IR Trigger or Manual Key
-            ir_triggered = check_ir_trigger()
+            # Poll IR Trigger every 200ms
+            ir_triggered = False
+            if time.time() - last_ir_check > 0.2:
+                ir_triggered = check_ir_trigger()
+                last_ir_check = time.time()
             
             if key == ord(QUIT_KEY):
                 cap.release()

@@ -581,23 +581,28 @@ async def id_card_ocr(request: IDOCRRequest):
 
 # --- Kiosk Status, Cleanup & IR Trigger ---
 KIOSK_LOCKED_VEHICLE = None
-IR_TRIGGERED = False
+IR_FLAG_FILE = "data/ir_triggered.flag"
 
 @router.post("/ir-trigger")
 async def trigger_ir():
-    """Endpoint for hardware IR sensor to signal a trigger."""
-    global IR_TRIGGERED
-    IR_TRIGGERED = True
-    print("🔔 [API] IR Sensor Triggered")
-    return {"status": "success"}
+    """Endpoint for hardware IR sensor to signal a trigger. Writes to a temp file."""
+    try:
+        with open(IR_FLAG_FILE, "w") as f:
+            f.write("1")
+        print("🔔 [API] IR Sensor Triggered (Flag File Created)")
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @router.get("/ir-status")
 async def get_ir_status():
-    """Browser polls this to see if IR was cut."""
-    global IR_TRIGGERED
-    if IR_TRIGGERED:
-        IR_TRIGGERED = False # Clear after consumption
-        return {"status": "triggered"}
+    """Checks if flag file exists and deletes it after reading."""
+    if os.path.exists(IR_FLAG_FILE):
+        try:
+            os.remove(IR_FLAG_FILE)
+            return {"status": "triggered"}
+        except:
+            pass
     return {"status": "idle"}
 
 @router.get("/kiosk-status")
