@@ -579,8 +579,26 @@ async def id_card_ocr(request: IDOCRRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing OCR: {str(e)}")
 
-# --- Kiosk Status & Cleanup ---
+# --- Kiosk Status, Cleanup & IR Trigger ---
 KIOSK_LOCKED_VEHICLE = None
+IR_TRIGGERED = False
+
+@router.post("/ir-trigger")
+async def trigger_ir():
+    """Endpoint for hardware IR sensor to signal a trigger."""
+    global IR_TRIGGERED
+    IR_TRIGGERED = True
+    print("🔔 [API] IR Sensor Triggered")
+    return {"status": "success"}
+
+@router.get("/ir-status")
+async def get_ir_status():
+    """Browser polls this to see if IR was cut."""
+    global IR_TRIGGERED
+    if IR_TRIGGERED:
+        IR_TRIGGERED = False # Clear after consumption
+        return {"status": "triggered"}
+    return {"status": "idle"}
 
 @router.get("/kiosk-status")
 async def get_kiosk_status():

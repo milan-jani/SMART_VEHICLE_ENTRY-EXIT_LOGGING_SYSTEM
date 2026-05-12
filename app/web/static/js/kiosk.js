@@ -55,11 +55,35 @@ function openCameraModal(side) {
     document.getElementById('modal-title').textContent = side === 'front' ? 'Capture Front of ID' : 'Capture Back of ID';
     document.getElementById('camera-modal').classList.remove('hidden');
     initCamera();
+    startIRPolling(); // Start listening for IR sensor
 }
 
 function closeCameraModal() {
     document.getElementById('camera-modal').classList.add('hidden');
     stopCamera();
+    stopIRPolling(); // Stop listening for IR sensor
+}
+
+let irPollInterval = null;
+function startIRPolling() {
+    if (irPollInterval) return;
+    irPollInterval = setInterval(async () => {
+        try {
+            const resp = await fetch('/api/ir-status?t=' + new Date().getTime());
+            const data = await resp.json();
+            if (data.status === 'triggered') {
+                console.log("🚨 [IR] External Trigger Received!");
+                takeSnapshot(); // This already handles the 3-sec countdown
+            }
+        } catch (err) { console.error("IR Poll Error:", err); }
+    }, 500); // Poll every 500ms when modal is open
+}
+
+function stopIRPolling() {
+    if (irPollInterval) {
+        clearInterval(irPollInterval);
+        irPollInterval = null;
+    }
 }
 
 async function initCamera() {

@@ -24,6 +24,14 @@ def check_kiosk_status():
     except:
         return False
 
+def check_ir_trigger():
+    """Returns True if hardware IR sensor was triggered."""
+    try:
+        r = requests.get(f"{API_BASE_URL}/api/ir-status", timeout=0.2)
+        return r.status_code == 200 and r.json().get("status") == "triggered"
+    except:
+        return False
+
 def process_vehicle(plate_number, image_path):
     """Sends detection to backend."""
     if not plate_number:
@@ -109,12 +117,18 @@ def run_device_workflow():
             cv2.imshow("Smart Gate - Camera Feed", frame)
             key = cv2.waitKey(1) & 0xFF
             
+            # Check for Physical IR Trigger or Manual Key
+            ir_triggered = check_ir_trigger()
+            
             if key == ord(QUIT_KEY):
                 cap.release()
                 cv2.destroyAllWindows()
                 return
                 
-            if key == ord(CAPTURE_KEY):
+            if key == ord(CAPTURE_KEY) or ir_triggered:
+                if ir_triggered:
+                    print("\n🚨 [IR] Physical Trigger Detected!", flush=True)
+                
                 if not kiosk_ready:
                     print("\n[BUSY] Complete the current visitor form first!", flush=True)
                     continue
