@@ -763,7 +763,8 @@ video {
     background: var(--primary-light);
 }
 
-.keyboard-wrapper {
+/* Docked Virtual Keyboard Styles from Temp */
+.virtual-keyboard {
     position: fixed;
     bottom: 0;
     left: 0;
@@ -778,33 +779,31 @@ video {
     animation: slideUpKeyboard 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes slideUpKeyboard {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-}
-
-.keyboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 5px 10px;
-    border-bottom: 1px solid #cbd5e1;
-    margin-bottom: 10px;
-}
-
-.keyboard-header span {
-    font-size: 0.9rem;
-    font-weight: 800;
-    color: #475569;
-    text-transform: uppercase;
-}
-
-.keys-grid {
+.keyboard-grid {
     display: flex;
     flex-direction: column;
     gap: 8px;
     width: 700px;
     max-width: 95vw;
+}
+
+.close-kbd-float {
+    position: absolute;
+    top: -20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 3001;
 }
 
 .keyboard-row {
@@ -847,10 +846,6 @@ video {
     max-width: 450px;
 }
 
-.key.special {
-    background: #e2e8f0;
-}
-
 .key.backspace {
     background: #fecaca;
     color: #dc2626;
@@ -862,8 +857,8 @@ video {
     max-width: 120px;
 }
 
-/* Numpad Mode */
-.keys-grid.numpad {
+/* Numpad specific */
+.keyboard-grid.numpad {
     width: 320px;
 }
 

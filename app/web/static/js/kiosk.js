@@ -225,16 +225,14 @@ function initVirtualKeyboard() {
 
 function openKeyboard(input) {
     currentActiveInput = input;
-    const keyboard = document.getElementById('virtual-keyboard');
+    const keyboard = document.getElementById('keyboard-container');
     const keysContainer = document.getElementById('keyboard-keys');
-    const title = document.getElementById('keyboard-title');
     
     // Choose layout
     const isPhone = input.type === 'tel' || input.id === 'phone';
     const layoutType = isPhone ? 'numpad' : 'qwerty';
     
-    title.textContent = isPhone ? 'Numeric Entry' : 'Alpha-Numeric Entry';
-    keysContainer.className = 'keys-grid ' + layoutType;
+    keysContainer.className = 'keyboard-grid ' + layoutType;
     
     renderKeys(layoutType);
     keyboard.classList.remove('hidden');
@@ -245,7 +243,7 @@ function openKeyboard(input) {
 }
 
 function closeKeyboard() {
-    document.getElementById('virtual-keyboard').classList.add('hidden');
+    document.getElementById('keyboard-container').classList.add('hidden');
     if (currentActiveInput) currentActiveInput.classList.remove('keyboard-active');
 }
 
