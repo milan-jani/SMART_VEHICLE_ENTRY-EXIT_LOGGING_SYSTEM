@@ -25,7 +25,7 @@ def send_visitor_notification(recipient_email, visitor_name, address, vehicle_no
             msg = MIMEMultipart()
             msg['From'] = DEFAULT_SENDER
             msg['To'] = recipient_email
-            msg['Subject'] = f"🔔 Visitor Alert: {visitor_name} is here to meet you"
+            msg['Subject'] = f"Visitor Alert: {visitor_name} is here to meet you"
 
             body = f"""
             <html>

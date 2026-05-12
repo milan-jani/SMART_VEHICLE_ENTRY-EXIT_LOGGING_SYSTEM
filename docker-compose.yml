@@ -13,6 +13,7 @@ services:
       - ./.env:/app/.env:ro
     environment:
       - API_BASE_URL=http://localhost:8000
+      - TZ=Asia/Kolkata
 
   camera:
     build: .
@@ -30,6 +31,7 @@ services:
       - API_BASE_URL=http://localhost:8000
       - DISPLAY=:0
       - XAUTHORITY=/tmp/.Xauthority
+      - TZ=Asia/Kolkata
     devices:
       - /dev/video0:/dev/video0
       - /dev/video1:/dev/video1

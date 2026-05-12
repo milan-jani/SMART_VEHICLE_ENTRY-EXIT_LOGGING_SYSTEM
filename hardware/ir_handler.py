@@ -27,13 +27,13 @@ def ir_triggered():
     
     # Custom debounce for 5 seconds
     if current_time - last_trigger_time > DEBOUNCE_TIME:
-        print("🚨 [IR] Sensor Cut Detected! (Interrupt via gpiozero)")
+        print("[IR] Sensor Cut Detected! (Interrupt via gpiozero)")
         try:
             requests.post(f"{API_URL}/api/ir-trigger", timeout=2)
-            print("✅ [IR] Trigger signal sent to API.")
+            print("[IR] Trigger signal sent to API.")
             last_trigger_time = current_time
         except Exception as e:
-            print(f"❌ [IR] Failed to send trigger: {e}")
+            print(f"[IR] Failed to send trigger: {e}")
 
 # Assign the function to the 'when_pressed' event (Falling edge)
 sensor.when_pressed = ir_triggered
