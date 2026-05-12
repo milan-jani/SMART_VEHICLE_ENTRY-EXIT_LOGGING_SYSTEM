@@ -434,6 +434,7 @@ def init_staff_data_internal(cursor):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         staff_list = [
             ("Milan Jani", "442", "ICT Department", "9876543210", "milanjani707@gmail.com", "MA115"),
+            ("Vijay Dubey", "123", "ICT Department", "9988771122", "vijay.dubey@marwadieducation.edu.in", "MA157"),
             ("Rajesh Kumar", "101", "Administration", "9988776655", "rajesh.admin@example.com", "MB001"),
             ("Sneha Patel", "205", "Human Resources", "9123456789", "sneha.hr@example.com", "MA158"),
             ("Amit Shah", "330", "Security", "9555554444", "amit.security@example.com", "G001"),
