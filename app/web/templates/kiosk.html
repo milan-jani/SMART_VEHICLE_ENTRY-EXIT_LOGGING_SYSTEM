@@ -95,7 +95,7 @@
                             <label for="id_number">ID Number <span class="required">*</span></label>
                             <div class="input-wrapper">
                                 <i class="fas fa-hashtag input-icon"></i>
-                                <input type="text" id="id_number" name="id_number" placeholder="Enter ID number" required>
+                                <input type="text" id="id_number" name="id_number" placeholder="Enter ID number" inputmode="none" required>
                             </div>
                             <span class="validation-msg" id="id_validation_msg"></span>
                         </div>
@@ -148,7 +148,7 @@
                             <label for="visitor_name">Visitor Name <span class="required">*</span></label>
                             <div class="input-wrapper">
                                 <i class="fas fa-user input-icon"></i>
-                                <input type="text" id="visitor_name" name="visitor_name" placeholder="Enter full name" required>
+                                <input type="text" id="visitor_name" name="visitor_name" placeholder="Enter full name" inputmode="none" required>
                             </div>
                         </div>
 
@@ -176,7 +176,7 @@
                             <label for="address">Address</label>
                             <div class="input-wrapper align-top">
                                 <i class="fas fa-home input-icon"></i>
-                                <textarea id="address" name="address" rows="3" placeholder="Full address as on ID card..."></textarea>
+                                <textarea id="address" name="address" rows="3" placeholder="Full address as on ID card..." inputmode="none"></textarea>
                             </div>
                         </div>
                     </div>
@@ -202,19 +202,22 @@
                     </div>
 
                     <div class="form-row two-cols">
-                        <div class="input-group">
+                        <div class="input-group relative">
                             <label for="person_to_meet">Person to Meet</label>
                             <div class="input-wrapper">
                                 <i class="fas fa-user-tie input-icon"></i>
-                                <input type="text" id="person_to_meet" name="person_to_meet" placeholder="Resident/Staff Name">
+                                <input type="text" id="person_to_meet" name="person_to_meet" placeholder="Type name (e.g. Milan)" autocomplete="off" inputmode="none">
+                                <input type="hidden" id="person_to_meet_email" name="person_to_meet_email">
+                                <input type="hidden" id="person_to_meet_code" name="person_to_meet_code">
                             </div>
+                            <div id="staff-suggestions" class="suggestions-container hidden"></div>
                         </div>
 
                         <div class="input-group">
                             <label for="flat_no">Flat / Unit No.</label>
                             <div class="input-wrapper">
                                 <i class="fas fa-building input-icon"></i>
-                                <input type="text" id="flat_no" name="flat_no" placeholder="e.g. A-102">
+                                <input type="text" id="flat_no" name="flat_no" placeholder="e.g. A-102" inputmode="none">
                             </div>
                         </div>
                     </div>
@@ -246,7 +249,7 @@
                             <label for="company">Company / Organization</label>
                             <div class="input-wrapper">
                                 <i class="fas fa-briefcase input-icon"></i>
-                                <input type="text" id="company" name="company" placeholder="E.g., Amazon, UrbanClap">
+                                <input type="text" id="company" name="company" placeholder="E.g., Amazon, UrbanClap" inputmode="none">
                             </div>
                         </div>
 
@@ -267,7 +270,7 @@
                             <label for="remarks">Remarks</label>
                             <div class="input-wrapper align-top">
                                 <i class="fas fa-comment-dots input-icon"></i>
-                                <textarea id="remarks" name="remarks" rows="1" placeholder="Any additional notes..."></textarea>
+                                <textarea id="remarks" name="remarks" rows="1" placeholder="Any additional notes..." inputmode="none"></textarea>
                             </div>
                         </div>
                     </div>
@@ -350,33 +353,11 @@
         </div>
     </div>
 
-    <!-- Virtual Numpad Overlay -->
-    <div id="numpad-overlay" class="modal-overlay hidden">
-        <div class="numpad-content">
-            <div class="numpad-header">
-                <h3>Enter Phone Number</h3>
-                <button type="button" class="btn-close" onclick="closeNumpad()"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="numpad-display-container">
-                <input type="text" id="numpad-display" readonly>
-            </div>
-            <div class="numpad-grid">
-                <button type="button" class="numpad-btn" onclick="numpadPress('1')">1</button>
-                <button type="button" class="numpad-btn" onclick="numpadPress('2')">2</button>
-                <button type="button" class="numpad-btn" onclick="numpadPress('3')">3</button>
-                <button type="button" class="numpad-btn" onclick="numpadPress('4')">4</button>
-                <button type="button" class="numpad-btn" onclick="numpadPress('5')">5</button>
-                <button type="button" class="numpad-btn" onclick="numpadPress('6')">6</button>
-                <button type="button" class="numpad-btn" onclick="numpadPress('7')">7</button>
-                <button type="button" class="numpad-btn" onclick="numpadPress('8')">8</button>
-                <button type="button" class="numpad-btn" onclick="numpadPress('9')">9</button>
-                <button type="button" class="numpad-btn btn-danger" onclick="numpadClear()">C</button>
-                <button type="button" class="numpad-btn" onclick="numpadPress('0')">0</button>
-                <button type="button" class="numpad-btn btn-warning" onclick="numpadBackspace()"><i class="fas fa-backspace"></i></button>
-            </div>
-            <div class="numpad-footer">
-                <button type="button" class="btn-primary numpad-done" onclick="numpadDone()">Done</button>
-            </div>
+    <!-- Docked Virtual Keyboard/Numpad -->
+    <div id="keyboard-container" class="virtual-keyboard">
+        <button type="button" class="close-kbd-float" onclick="hideKeyboard()">&times;</button>
+        <div id="keyboard-keys" class="keyboard-grid">
+            <!-- Keys generated by JS -->
         </div>
     </div>
 

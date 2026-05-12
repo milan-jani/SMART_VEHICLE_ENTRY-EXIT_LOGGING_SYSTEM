@@ -228,62 +228,212 @@ document.getElementById('kiosk-form').addEventListener('submit', async function(
     } catch (err) { overlay.classList.add('hidden'); }
 });
 
-// --- Virtual Numpad Logic ---
-let currentTargetInputId = null;
+// --- Staff Autocomplete System ---
+function initStaffAutocomplete() {
+    const input = document.getElementById('person_to_meet');
+    const suggestionsBox = document.getElementById('staff-suggestions');
+    const emailInput = document.getElementById('person_to_meet_email');
+    const codeInput = document.getElementById('person_to_meet_code');
+    
+    let debounceTimer;
 
-function openNumpad(inputId) {
-    currentTargetInputId = inputId;
-    const targetInput = document.getElementById(inputId);
-    const numpadDisplay = document.getElementById('numpad-display');
-    numpadDisplay.value = targetInput.value;
-    document.getElementById('numpad-overlay').classList.remove('hidden');
-}
-
-function closeNumpad() {
-    document.getElementById('numpad-overlay').classList.add('hidden');
-    currentTargetInputId = null;
-}
-
-function numpadPress(num) {
-    const display = document.getElementById('numpad-display');
-    // For phone numbers, limit to 10 digits
-    if (currentTargetInputId === 'phone' && display.value.length >= 10) return;
-    display.value += num;
-}
-
-function numpadBackspace() {
-    const display = document.getElementById('numpad-display');
-    display.value = display.value.slice(0, -1);
-}
-
-function numpadClear() {
-    document.getElementById('numpad-display').value = '';
-}
-
-function numpadDone() {
-    if (currentTargetInputId) {
-        const targetInput = document.getElementById(currentTargetInputId);
-        targetInput.value = document.getElementById('numpad-display').value;
-        // Trigger input event
-        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
-        if (currentTargetInputId === 'phone' && targetInput.value.length === 10) {
-            targetInput.setCustomValidity('');
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const query = input.value.trim();
+        
+        if (query.length < 2) {
+            suggestionsBox.classList.add('hidden');
+            return;
         }
+
+        debounceTimer = setTimeout(async () => {
+            try {
+                const resp = await fetch(`/api/staff-search?q=${encodeURIComponent(query)}`);
+                const result = await resp.json();
+                
+                if (result.status === 'success' && result.data.length > 0) {
+                    renderSuggestions(result.data);
+                } else {
+                    suggestionsBox.classList.add('hidden');
+                }
+            } catch (err) { console.error("Search Error:", err); }
+        }, 300);
+    });
+
+    function renderSuggestions(staff) {
+        suggestionsBox.innerHTML = '';
+        staff.forEach(person => {
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            div.innerHTML = `
+                <div class="suggestion-name">${person.name}</div>
+                <div class="suggestion-meta">
+                    <span><i class="fas fa-building"></i> ${person.department}</span>
+                    <span><i class="fas fa-map-marker-alt"></i> ${person.room_no || '-'}</span>
+                    <span><i class="fas fa-id-badge"></i> ${person.emp_code}</span>
+                </div>
+            `;
+            div.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                selectStaff(person);
+            });
+            suggestionsBox.appendChild(div);
+        });
+        suggestionsBox.classList.remove('hidden');
     }
-    closeNumpad();
+
+    function selectStaff(person) {
+        input.value = person.name;
+        emailInput.value = person.email;
+        codeInput.value = person.emp_code;
+        
+        // Auto-fill Flat/Room No field
+        const flatInput = document.getElementById('flat_no');
+        if (flatInput && person.room_no) {
+            flatInput.value = person.room_no;
+            // Highlight it briefly
+            flatInput.style.backgroundColor = 'rgba(13, 148, 136, 0.1)';
+            setTimeout(() => { flatInput.style.backgroundColor = ''; }, 1000);
+        }
+
+        suggestionsBox.classList.add('hidden');
+        // Briefly highlight the input to show it's selected
+        input.style.backgroundColor = 'rgba(13, 148, 136, 0.1)';
+        setTimeout(() => { input.style.backgroundColor = ''; }, 500);
+    }
+
+    // Hide on click outside
+    document.addEventListener('mousedown', (e) => {
+        if (!input.contains(e.target) && !suggestionsBox.contains(e.target)) {
+            suggestionsBox.classList.add('hidden');
+        }
+    });
 }
 
-// Support physical keyboard when Virtual Numpad is open
-document.addEventListener('keydown', function(e) {
-    if (!currentTargetInputId) return;
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        numpadDone();
-    } else if (e.key === 'Escape') {
-        closeNumpad();
-    } else if (e.key === 'Backspace') {
-        numpadBackspace();
-    } else if (/^[0-9]$/.test(e.key)) {
-        numpadPress(e.key);
+// --- Virtual Keyboard & Numpad System ---
+let currentFocusInput = null;
+const keyboardContainer = document.getElementById('keyboard-container');
+const keyboardKeys = document.getElementById('keyboard-keys');
+
+const layouts = {
+    numpad: [
+        ['1', '2', '3'],
+        ['4', '5', '6'],
+        ['7', '8', '9'],
+        ['Clear', '0', 'Back']
+    ],
+    qwerty: [
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+        ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+        ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+        ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'Back'],
+        ['Space', 'Done']
+    ]
+};
+
+function initKeyboard() {
+    const inputs = document.querySelectorAll('input[type="text"], input[type="tel"], textarea, input[type="hashtag"]');
+    inputs.forEach(input => {
+        input.addEventListener('focus', () => {
+            currentFocusInput = input;
+            const type = (input.type === 'tel' || input.id === 'id_number') ? 'numpad' : 'qwerty';
+            showKeyboard(type);
+        });
+    });
+
+    // Close keyboard when clicking outside
+    document.addEventListener('mousedown', (e) => {
+        if (!keyboardContainer.contains(e.target) && !e.target.matches('input, textarea')) {
+            hideKeyboard();
+        }
+    });
+}
+
+function showKeyboard(type) {
+    keyboardKeys.innerHTML = '';
+    keyboardKeys.className = type === 'numpad' ? 'numpad-container' : 'keyboard-grid';
+    
+    layouts[type].forEach(row => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'keyboard-row';
+        row.forEach(key => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'key';
+            btn.textContent = key;
+            
+            if (key === 'Back') {
+                btn.innerHTML = '<i class="fas fa-backspace"></i>';
+                btn.classList.add('wide');
+            } else if (key === 'Clear') {
+                btn.classList.add('wide');
+            } else if (key === 'Space') {
+                btn.classList.add('space');
+            } else if (key === 'Done') {
+                btn.classList.add('done');
+            }
+
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Prevent focus loss
+                handleKeyPress(key);
+            });
+            rowDiv.appendChild(btn);
+        });
+        keyboardKeys.appendChild(rowDiv);
+    });
+
+    keyboardContainer.style.display = 'flex';
+    document.body.classList.add('keyboard-active');
+    
+    // Scroll input into view
+    setTimeout(() => {
+        currentFocusInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+}
+
+function hideKeyboard() {
+    keyboardContainer.style.display = 'none';
+    document.body.classList.remove('keyboard-active');
+    if (currentFocusInput) currentFocusInput.blur();
+    currentFocusInput = null;
+}
+
+function handleKeyPress(key) {
+    if (!currentFocusInput) return;
+
+    const start = currentFocusInput.selectionStart;
+    const end = currentFocusInput.selectionEnd;
+    const value = currentFocusInput.value;
+
+    if (key === 'Back') {
+        currentFocusInput.value = value.slice(0, start === end ? start - 1 : start) + value.slice(end);
+        currentFocusInput.setSelectionRange(start === end ? start - 1 : start, start === end ? start - 1 : start);
+    } else if (key === 'Clear') {
+        currentFocusInput.value = '';
+    } else if (key === 'Space') {
+        currentFocusInput.value = value.slice(0, start) + ' ' + value.slice(end);
+        currentFocusInput.setSelectionRange(start + 1, start + 1);
+    } else if (key === 'Done') {
+        hideKeyboard();
+    } else {
+        // Limit phone to 10
+        if (currentFocusInput.type === 'tel' && value.length >= 10) return;
+        
+        currentFocusInput.value = value.slice(0, start) + key + value.slice(end);
+        currentFocusInput.setSelectionRange(start + 1, start + 1);
     }
+
+    currentFocusInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// Update DOMContentLoaded to include initKeyboard
+document.addEventListener('DOMContentLoaded', function() {
+    initChips();
+    initIDTypeLogic();
+    startInactivityTimer();
+    startStandbyPolling();
+    updateStandbyTime();
+    initKeyboard();
+    initStaffAutocomplete();
+    setInterval(updateStandbyTime, 1000);
 });
