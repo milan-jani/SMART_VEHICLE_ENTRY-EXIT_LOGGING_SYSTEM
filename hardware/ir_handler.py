@@ -23,6 +23,7 @@ def ir_callback(channel):
         print(f"❌ [IR] Failed to send trigger: {e}")
 
 # GPIO Initialization
+GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 # Using PULL_UP because most IR sensors are Active-Low
 GPIO.setup(IR_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
