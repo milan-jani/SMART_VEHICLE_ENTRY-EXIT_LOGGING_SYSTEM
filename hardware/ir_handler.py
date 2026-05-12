@@ -1,49 +1,47 @@
-import RPi.GPIO as GPIO
-import time
+from gpiozero import Button
+from signal import pause
 import requests
 import os
+import time
 from dotenv import load_dotenv
 
 # Load configuration
 load_dotenv()
 
 # GPIO Setup
-IR_PIN = int(os.getenv("IR_SENSOR_PIN", 17)) # Default GPIO 17
+# gpiozero uses BCM numbering by default
+IR_PIN = int(os.getenv("IR_SENSOR_PIN", 17)) 
 API_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-DEBOUNCE_TIME = 5000 # Milliseconds (5 seconds)
+DEBOUNCE_TIME = 5.0 # Seconds
 
-def ir_callback(channel):
-    """Callback function triggered on IR sensor edge detection."""
-    print("🚨 [IR] Interrupt Triggered! Sensor Cut Detected.")
-    try:
-        # Notify the backend
-        requests.post(f"{API_URL}/api/ir-trigger", timeout=2)
-        print("✅ [IR] Trigger signal sent to API.")
-    except Exception as e:
-        print(f"❌ [IR] Failed to send trigger: {e}")
+# Initialize IR Sensor as a "Button"
+# pull_up=True because most IR sensors are Active-Low (Low when cut)
+sensor = Button(IR_PIN, pull_up=True, bounce_time=0.1)
 
-# GPIO Initialization
-GPIO.setwarnings(False)
-GPIO.setmode(GPIO.BCM)
-# Using PULL_UP because most IR sensors are Active-Low
-GPIO.setup(IR_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+last_trigger_time = 0
 
-# Add Interrupt Event Detection (Falling edge = Sensor cut)
-# bouncetime handles hardware debounce
-GPIO.add_event_detect(IR_PIN, GPIO.FALLING, callback=ir_callback, bouncetime=DEBOUNCE_TIME)
+def ir_triggered():
+    """Function called when IR sensor is cut (Pressed)."""
+    global last_trigger_time
+    current_time = time.time()
+    
+    # Custom debounce for 5 seconds
+    if current_time - last_trigger_time > DEBOUNCE_TIME:
+        print("🚨 [IR] Sensor Cut Detected! (Interrupt via gpiozero)")
+        try:
+            requests.post(f"{API_URL}/api/ir-trigger", timeout=2)
+            print("✅ [IR] Trigger signal sent to API.")
+            last_trigger_time = current_time
+        except Exception as e:
+            print(f"❌ [IR] Failed to send trigger: {e}")
 
-print(f"--- IR Interrupt Handler Started ---")
-print(f"Monitoring GPIO Pin: {IR_PIN} (Interrupt Mode)")
+# Assign the function to the 'when_pressed' event (Falling edge)
+sensor.when_pressed = ir_triggered
+
+print(f"--- IR Universal Handler Started (gpiozero) ---")
+print(f"Monitoring GPIO Pin: {IR_PIN}")
 print(f"Target API: {API_URL}")
-print("Press Ctrl+C to exit.")
+print("System is idle and waiting for interrupts... (CPU usage < 1%)")
 
-try:
-    # Keep the script alive with minimal CPU usage
-    while True:
-        time.sleep(10) # Sleep for long periods, interrupts work in background
-
-except KeyboardInterrupt:
-    print("\nStopping IR Handler...")
-finally:
-    GPIO.cleanup()
-    print("GPIO Cleanup done.")
+# Keep the script running
+pause()
