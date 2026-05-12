@@ -228,6 +228,88 @@ document.getElementById('kiosk-form').addEventListener('submit', async function(
     } catch (err) { overlay.classList.add('hidden'); }
 });
 
+// --- Staff Autocomplete System ---
+function initStaffAutocomplete() {
+    const input = document.getElementById('person_to_meet');
+    const suggestionsBox = document.getElementById('staff-suggestions');
+    const emailInput = document.getElementById('person_to_meet_email');
+    const codeInput = document.getElementById('person_to_meet_code');
+    
+    let debounceTimer;
+
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const query = input.value.trim();
+        
+        if (query.length < 2) {
+            suggestionsBox.classList.add('hidden');
+            return;
+        }
+
+        debounceTimer = setTimeout(async () => {
+            try {
+                const resp = await fetch(`/api/staff-search?q=${encodeURIComponent(query)}`);
+                const result = await resp.json();
+                
+                if (result.status === 'success' && result.data.length > 0) {
+                    renderSuggestions(result.data);
+                } else {
+                    suggestionsBox.classList.add('hidden');
+                }
+            } catch (err) { console.error("Search Error:", err); }
+        }, 300);
+    });
+
+    function renderSuggestions(staff) {
+        suggestionsBox.innerHTML = '';
+        staff.forEach(person => {
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            div.innerHTML = `
+                <div class="suggestion-name">${person.name}</div>
+                <div class="suggestion-meta">
+                    <span><i class="fas fa-building"></i> ${person.department}</span>
+                    <span><i class="fas fa-map-marker-alt"></i> ${person.room_no || '-'}</span>
+                    <span><i class="fas fa-id-badge"></i> ${person.emp_code}</span>
+                </div>
+            `;
+            div.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                selectStaff(person);
+            });
+            suggestionsBox.appendChild(div);
+        });
+        suggestionsBox.classList.remove('hidden');
+    }
+
+    function selectStaff(person) {
+        input.value = person.name;
+        emailInput.value = person.email;
+        codeInput.value = person.emp_code;
+        
+        // Auto-fill Flat/Room No field
+        const flatInput = document.getElementById('flat_no');
+        if (flatInput && person.room_no) {
+            flatInput.value = person.room_no;
+            // Highlight it briefly
+            flatInput.style.backgroundColor = 'rgba(13, 148, 136, 0.1)';
+            setTimeout(() => { flatInput.style.backgroundColor = ''; }, 1000);
+        }
+
+        suggestionsBox.classList.add('hidden');
+        // Briefly highlight the input to show it's selected
+        input.style.backgroundColor = 'rgba(13, 148, 136, 0.1)';
+        setTimeout(() => { input.style.backgroundColor = ''; }, 500);
+    }
+
+    // Hide on click outside
+    document.addEventListener('mousedown', (e) => {
+        if (!input.contains(e.target) && !suggestionsBox.contains(e.target)) {
+            suggestionsBox.classList.add('hidden');
+        }
+    });
+}
+
 // --- Virtual Keyboard & Numpad System ---
 let currentFocusInput = null;
 const keyboardContainer = document.getElementById('keyboard-container');
@@ -352,5 +434,6 @@ document.addEventListener('DOMContentLoaded', function() {
     startStandbyPolling();
     updateStandbyTime();
     initKeyboard();
+    initStaffAutocomplete();
     setInterval(updateStandbyTime, 1000);
 });

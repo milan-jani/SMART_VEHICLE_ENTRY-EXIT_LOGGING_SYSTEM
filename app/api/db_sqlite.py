@@ -84,6 +84,8 @@ def init_db():
         ("expected_duration", "TEXT DEFAULT ''"),
         ("remarks", "TEXT DEFAULT ''"),
         ("address", "TEXT DEFAULT ''"),
+        ("person_to_meet_email", "TEXT DEFAULT ''"),
+        ("person_to_meet_code", "TEXT DEFAULT ''"),
     ]
     
     for col_name, col_def in new_columns:
@@ -110,7 +112,48 @@ def init_db():
         except sqlite3.OperationalError:
             pass # Column already exists
     
+    # Create staff table (Faculty/Employees)
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS staff (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        emp_code TEXT UNIQUE NOT NULL,
+        department TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        email TEXT DEFAULT '',
+        room_no TEXT DEFAULT '',
+        created_at TEXT NOT NULL
+    )
+    ''')
+    
+    # Add index for name search
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_staff_name ON staff(name)')
+
     conn.commit()
+    conn.close()
+    
+    # Seed dummy staff if empty
+    seed_staff_data()
+
+def seed_staff_data():
+    """Inserts dummy staff data if the table is empty."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM staff')
+    if cursor.fetchone()[0] == 0:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        staff_list = [
+            ("Milan Jani", "442", "ICT Department", "9876543210", "milanjani707@gmail.com", "MA115"),
+            ("Rajesh Kumar", "101", "Administration", "9988776655", "rajesh.admin@example.com", "MB001"),
+            ("Sneha Patel", "205", "Human Resources", "9123456789", "sneha.hr@example.com", "MA158"),
+            ("Amit Shah", "330", "Security", "9555554444", "amit.security@example.com", "G001"),
+            ("Priya Sharma", "445", "ICT Department", "9666667777", "priya.ict@example.com", "MA116")
+        ]
+        cursor.executemany('''
+            INSERT INTO staff (name, emp_code, department, phone, email, room_no, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', [(s[0], s[1], s[2], s[3], s[4], s[5], now) for s in staff_list])
+        conn.commit()
     conn.close()
 
 # --- CRUD Operations for Visits ---
@@ -397,6 +440,36 @@ def update_kiosk_visit_details(vehicle_no: str, details: Dict[str, Any]) -> bool
     conn.commit()
     conn.close()
     return success
+
+# --- Phase 7: Staff/Faculty search ---
+
+def search_staff(query: str) -> List[Dict[str, Any]]:
+    """Searches for staff members by name or department."""
+    if not query:
+        return []
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    search_term = f"%{query}%"
+    cursor.execute('''
+        SELECT * FROM staff 
+        WHERE name LIKE ? OR department LIKE ? OR emp_code LIKE ?
+        LIMIT 10
+    ''', (search_term, search_term, search_term))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def get_staff_by_id(staff_id: int) -> Optional[Dict[str, Any]]:
+    """Retrieves specific staff details."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM staff WHERE id = ?', (staff_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 def delete_visit(visit_id: int) -> bool:
     """Deletes a visit entry by ID. Used for dashboard cleanup."""

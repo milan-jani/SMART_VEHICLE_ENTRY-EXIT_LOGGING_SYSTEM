@@ -202,12 +202,15 @@
                     </div>
 
                     <div class="form-row two-cols">
-                        <div class="input-group">
+                        <div class="input-group relative">
                             <label for="person_to_meet">Person to Meet</label>
                             <div class="input-wrapper">
                                 <i class="fas fa-user-tie input-icon"></i>
-                                <input type="text" id="person_to_meet" name="person_to_meet" placeholder="Resident/Staff Name" inputmode="none">
+                                <input type="text" id="person_to_meet" name="person_to_meet" placeholder="Type name (e.g. Milan)" autocomplete="off" inputmode="none">
+                                <input type="hidden" id="person_to_meet_email" name="person_to_meet_email">
+                                <input type="hidden" id="person_to_meet_code" name="person_to_meet_code">
                             </div>
+                            <div id="staff-suggestions" class="suggestions-container hidden"></div>
                         </div>
 
                         <div class="input-group">

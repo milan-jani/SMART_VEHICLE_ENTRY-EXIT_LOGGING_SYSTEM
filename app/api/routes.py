@@ -2,8 +2,8 @@
 API Routes
 All FastAPI endpoints for vehicle logging system
 """
-from fastapi import APIRouter, HTTPException, Request, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, HTTPException, Request, Form, UploadFile, File, BackgroundTasks
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional, List
@@ -28,6 +28,8 @@ from .db_sqlite import (
     delete_visit
 )
 from .id_ocr import extract_id_details
+from .db_sqlite import search_staff
+from .email_utils import send_visitor_notification
 
 router = APIRouter()
 
@@ -477,6 +479,22 @@ async def submit_kiosk_form(request: Request):
             # UNLOCK kiosk — camera can resume
             print(f"[UNLOCK] Kiosk released for: {KIOSK_LOCKED_VEHICLE}")
             KIOSK_LOCKED_VEHICLE = None
+            
+            # --- Phase 7: Email Notification ---
+            faculty_email = data.get('person_to_meet_email')
+            faculty_name = data.get('person_to_meet')
+            visitor_name = data.get('visitor_name')
+            purpose = data.get('purpose')
+            address = data.get('address', '-')
+            
+            if faculty_email and faculty_name:
+                # Run in background to not block the response
+                import threading
+                threading.Thread(
+                    target=send_visitor_notification,
+                    args=(faculty_email, faculty_name, visitor_name, vehicle_no, purpose, address)
+                ).start()
+
             return {"status": "success", "message": "Visitor details logged successfully"}
         else:
             raise HTTPException(status_code=404, detail="No open visit found for this vehicle")
@@ -545,6 +563,35 @@ async def id_card_ocr(request: IDOCRRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing OCR: {str(e)}")
+
+@router.get("/staff-search")
+async def staff_search(q: str = ""):
+    """Search for faculty/staff members for autocomplete."""
+    try:
+        results = search_staff(q)
+        return {"status": "success", "data": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+@router.get("/manual-entry")
+async def manual_entry():
+    """Manually creates a test entry and redirects to kiosk."""
+    try:
+        import time
+        # Generate a unique test plate
+        test_plate = f"TEST_{int(time.time()) % 10000}"
+        
+        # Create the 'inside' record in DB
+        create_visit(
+            vehicle_no=test_plate,
+            image_path="", # No image for manual
+            visitor_type="visitor"
+        )
+        
+        # Redirect to kiosk form for this plate
+        return RedirectResponse(url=f"/api/kiosk?plate={test_plate}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Manual entry failed: {str(e)}")
 
 # --- Kiosk Status & Cleanup ---
 
