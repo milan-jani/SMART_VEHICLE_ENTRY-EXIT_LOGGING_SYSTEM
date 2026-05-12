@@ -229,7 +229,7 @@ function openKeyboard(input) {
     const keysContainer = document.getElementById('keyboard-keys');
     
     // Choose layout
-    const isPhone = input.type === 'tel' || input.id === 'phone';
+    const isPhone = input.type === 'tel' || input.id === 'phone' || input.id === 'id_number';
     const layoutType = isPhone ? 'numpad' : 'qwerty';
     
     keysContainer.className = 'keyboard-grid ' + layoutType;
@@ -237,14 +237,18 @@ function openKeyboard(input) {
     renderKeys(layoutType);
     keyboard.classList.remove('hidden');
     
-    // Highlight input
-    document.querySelectorAll('.input-wrapper input, .input-wrapper textarea').forEach(el => el.classList.remove('keyboard-active'));
-    input.classList.add('keyboard-active');
+    // Auto-scroll input into view (Center of screen)
+    setTimeout(() => {
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
 }
 
-function closeKeyboard() {
+function hideKeyboard() {
     document.getElementById('keyboard-container').classList.add('hidden');
-    if (currentActiveInput) currentActiveInput.classList.remove('keyboard-active');
+    if (currentActiveInput) {
+        currentActiveInput.blur();
+        currentActiveInput = null;
+    }
 }
 
 function renderKeys(layoutType) {
