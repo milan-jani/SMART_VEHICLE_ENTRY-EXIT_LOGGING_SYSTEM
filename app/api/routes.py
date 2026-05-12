@@ -2,8 +2,8 @@
 API Routes
 All FastAPI endpoints for vehicle logging system
 """
-from fastapi import APIRouter, HTTPException, Request, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, HTTPException, Request, Form, UploadFile, File, BackgroundTasks
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional, List
@@ -24,9 +24,11 @@ from .db_sqlite import (
     mark_regular_user,
     get_all_regular_users,
     delete_regular_user,
-    update_kiosk_visit_details
+    update_kiosk_visit_details,
+    search_staff
 )
 from .id_ocr import extract_id_details
+from .email_utils import send_visitor_notification
 
 router = APIRouter()
 
@@ -463,6 +465,18 @@ async def submit_kiosk_form(request: Request):
         success = update_kiosk_visit_details(vehicle_no, data)
         
         if success:
+            # Trigger Background Email Notification if staff email is provided
+            staff_email = data.get('person_to_meet_email')
+            if staff_email:
+                send_visitor_notification(
+                    recipient_email=staff_email,
+                    visitor_name=data.get('visitor_name', 'Unknown'),
+                    address=data.get('address', '-'),
+                    vehicle_no=vehicle_no,
+                    purpose=data.get('purpose', 'Meeting'),
+                    time_str=datetime.now().strftime("%I:%M %p")
+                )
+
             global KIOSK_LOCKED_VEHICLE
             KIOSK_LOCKED_VEHICLE = None # CLEAR THE LOCK
             return {"status": "success", "message": "Visitor details logged successfully"}
@@ -473,6 +487,37 @@ async def submit_kiosk_form(request: Request):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing kiosk submission: {str(e)}")
+
+@router.get("/staff-search")
+async def staff_search(q: str = ""):
+    """Real-time autocomplete search for staff members."""
+    try:
+        if len(q) < 2:
+            return []
+        results = search_staff(q)
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+@router.get("/manual-entry")
+async def manual_entry():
+    """Manually creates a test/manual entry and redirects to kiosk."""
+    try:
+        import time
+        # Generate a unique manual plate
+        manual_plate = f"MANUAL_{int(time.time()) % 10000}"
+        
+        # Create the 'inside' record in DB
+        create_visit(
+            vehicle_no=manual_plate,
+            image_path="", 
+            visitor_type="visitor"
+        )
+        
+        # Redirect to kiosk form for this plate
+        return RedirectResponse(url=f"/api/kiosk?plate={manual_plate}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Manual entry failed: {str(e)}")
 
 @router.post("/upload-id-card")
 async def upload_id_card(file: UploadFile = File(...)):

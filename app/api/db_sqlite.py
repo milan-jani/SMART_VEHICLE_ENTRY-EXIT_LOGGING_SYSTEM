@@ -63,6 +63,24 @@ def init_db():
     )
     ''')
     
+    # Create staff table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS staff (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        emp_code TEXT UNIQUE,
+        department TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        email TEXT DEFAULT '',
+        room_no TEXT DEFAULT '',
+        created_at TEXT NOT NULL
+    )
+    ''')
+    
+    conn.commit()
+    
+    # Initialize staff data
+    init_staff_data_internal(cursor)
     conn.commit()
     
     # --- Phase 5: Kiosk fields migration ---
@@ -408,6 +426,38 @@ def update_kiosk_visit_details(vehicle_no: str, details: Dict[str, Any]) -> bool
     conn.commit()
     conn.close()
     return success
+
+def init_staff_data_internal(cursor):
+    """Internal helper to seed staff data."""
+    cursor.execute("SELECT COUNT(*) FROM staff")
+    if cursor.fetchone()[0] == 0:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        staff_list = [
+            ("Milan Jani", "442", "ICT Department", "9876543210", "milanjani707@gmail.com", "MA115"),
+            ("Rajesh Kumar", "101", "Administration", "9988776655", "rajesh.admin@example.com", "MB001"),
+            ("Sneha Patel", "205", "Human Resources", "9123456789", "sneha.hr@example.com", "MA158"),
+            ("Amit Shah", "330", "Security", "9555554444", "amit.security@example.com", "G001"),
+            ("Priya Sharma", "445", "ICT Department", "9666667777", "priya.ict@example.com", "MA116")
+        ]
+        cursor.executemany('''
+            INSERT INTO staff (name, emp_code, department, phone, email, room_no, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', [(s[0], s[1], s[2], s[3], s[4], s[5], now) for s in staff_list])
+
+def search_staff(query: str):
+    """Searches for staff by name or department."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    search_query = f"%{query}%"
+    cursor.execute("""
+        SELECT name, emp_code, department, email, room_no 
+        FROM staff 
+        WHERE name LIKE ? OR department LIKE ? OR emp_code LIKE ?
+        LIMIT 5
+    """, (search_query, search_query, search_query))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 # Initialize the DB schema when this module is imported
 init_db()
